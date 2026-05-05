@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScriptHost</string>
+    <string name="add_script">Add Script</string>
+    <string name="run_script">Run Script</string>
+    <string name="edit_script">Edit Script</string>
+    <string name="delete_script">Delete Script</string>
+    <string name="export_script">Export Script</string>
+    <string name="script_name">Script Name</string>
+    <string name="script_version">Version</string>
+    <string name="script_author">Author</string>
+    <string name="script_description">Description</string>
+    <string name="script_code">Code</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="permission_required">Permission Required</string>
+    <string name="permission_denied">Permission Denied</string>
+    <string name="script_installed">Script Installed</string>
+    <string name="script_error">Script Error</string>
+    <string name="execution_timeout">Execution Timeout</string>
+    <string name="memory_limit_exceeded">Memory Limit Exceeded</string>
+    <string name="network_error">Network Error</string>
+    <string name="storage_error">Storage Error</string>
+    <string name="signature_invalid">Invalid Signature</string>
+    <string name="no_scripts">No Scripts Installed</string>
+    <string name="search_scripts">Search Scripts</string>
+    <string name="category">Category</string>
+    <string name="all_categories">All Categories</string>
+    <string name="stop_script">Stop Script</string>
+    <string name="console_output">Console Output</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dataExtractionRules>
+        <cloud-backup>
+            <include domain="file" path="scripts/"/>
+            <include domain="file" path="scripts_metadata.json"/>
+        </cloud-backup>
+        <device-transfer>
+            <include domain="file" path="scripts/"/>
+            <include domain="file" path="scripts_metadata.json"/>
+        </device-transfer>
+    </dataExtractionRules>
+</resources>
