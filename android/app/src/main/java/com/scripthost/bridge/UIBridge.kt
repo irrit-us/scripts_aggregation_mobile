@@ -2,7 +2,8 @@ package com.scripthost.bridge
 
 import android.content.Context
 import android.graphics.Color
-import android.view.Gravity
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
@@ -12,6 +13,8 @@ import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
 import com.scripthost.engine.ScriptBridge
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * UI Bridge - Exposes native UI components to scripts
@@ -22,6 +25,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     private var runtime: V8? = null
     private val viewRegistry = ConcurrentHashMap<Int, View>()
     private var nextViewId = 1000
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun register(runtime: V8) {
         this.runtime = runtime
@@ -65,13 +69,15 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createButton(text: String): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val button = Button(context).apply {
-            this.text = text
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(16, 16, 16, 16)
+        val button = onUiThread {
+            Button(context).apply {
+                this.text = text
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 16, 16, 16)
+                }
             }
         }
 
@@ -102,14 +108,16 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createLabel(text: String): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val label = TextView(context).apply {
-            this.text = text
-            textSize = 16f
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(16, 16, 16, 16)
+        val label = onUiThread {
+            TextView(context).apply {
+                this.text = text
+                textSize = 16f
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 16, 16, 16)
+                }
             }
         }
 
@@ -136,13 +144,15 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createTextField(hint: String): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val textField = EditText(context).apply {
-            this.hint = hint
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(16, 16, 16, 16)
+        val textField = onUiThread {
+            EditText(context).apply {
+                this.hint = hint
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 16, 16, 16)
+                }
             }
         }
 
@@ -169,11 +179,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createListView(): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val listView = android.widget.ListView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+        val listView = onUiThread {
+            android.widget.ListView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
         }
 
         val viewId = registerView(listView)
@@ -196,12 +208,14 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createImageView(): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val imageView = ImageView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(16, 16, 16, 16)
+        val imageView = onUiThread {
+            ImageView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 16, 16, 16)
+                }
             }
         }
 
@@ -220,13 +234,15 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createSwitch(text: String): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val switch = androidx.appcompat.widget.SwitchCompat(context).apply {
-            this.text = text
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(16, 16, 16, 16)
+        val switch = onUiThread {
+            androidx.appcompat.widget.SwitchCompat(context).apply {
+                this.text = text
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 16, 16, 16)
+                }
             }
         }
 
@@ -248,13 +264,15 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createSlider(): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val slider = SeekBar(context).apply {
-            max = 100
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(16, 16, 16, 16)
+        val slider = onUiThread {
+            SeekBar(context).apply {
+                max = 100
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 16, 16, 16)
+                }
             }
         }
 
@@ -278,11 +296,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun createScrollView(): V8Object {
         val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
 
-        val scrollView = ScrollView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
+        val scrollView = onUiThread {
+            ScrollView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
         }
 
         val viewId = registerView(scrollView)
@@ -297,64 +317,70 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
 
     @Suppress("unused")
     fun setButtonText(viewId: Int, text: String) {
-        (viewRegistry[viewId] as? Button)?.text = text
+        onUiThread { (viewRegistry[viewId] as? Button)?.text = text }
     }
 
     @Suppress("unused")
     fun setButtonColor(viewId: Int, color: String) {
-        (viewRegistry[viewId] as? Button)?.setBackgroundColor(parseColor(color))
+        onUiThread { (viewRegistry[viewId] as? Button)?.setBackgroundColor(parseColor(color)) }
     }
 
     @Suppress("unused")
     fun setButtonTextColor(viewId: Int, color: String) {
-        (viewRegistry[viewId] as? Button)?.setTextColor(parseColor(color))
+        onUiThread { (viewRegistry[viewId] as? Button)?.setTextColor(parseColor(color)) }
     }
 
     @Suppress("unused")
     fun setButtonOnTap(viewId: Int, callback: V8Function) {
-        (viewRegistry[viewId] as? Button)?.setOnClickListener {
-            callback.call(runtime, null)
+        val runtime = this.runtime ?: return
+        onUiThread {
+            (viewRegistry[viewId] as? Button)?.setOnClickListener {
+                callback.call(runtime, null)
+            }
         }
     }
 
     @Suppress("unused")
     fun setLabelText(viewId: Int, text: String) {
-        (viewRegistry[viewId] as? TextView)?.text = text
+        onUiThread { (viewRegistry[viewId] as? TextView)?.text = text }
     }
 
     @Suppress("unused")
     fun setLabelColor(viewId: Int, color: String) {
-        (viewRegistry[viewId] as? TextView)?.setTextColor(parseColor(color))
+        onUiThread { (viewRegistry[viewId] as? TextView)?.setTextColor(parseColor(color)) }
     }
 
     @Suppress("unused")
     fun setLabelSize(viewId: Int, size: Float) {
-        (viewRegistry[viewId] as? TextView)?.textSize = size
+        onUiThread { (viewRegistry[viewId] as? TextView)?.textSize = size }
     }
 
     @Suppress("unused")
     fun getTextFieldValue(viewId: Int): String {
-        return (viewRegistry[viewId] as? EditText)?.text?.toString() ?: ""
+        return onUiThread { (viewRegistry[viewId] as? EditText)?.text?.toString() ?: "" }
     }
 
     @Suppress("unused")
     fun setTextFieldValue(viewId: Int, value: String) {
-        (viewRegistry[viewId] as? EditText)?.setText(value)
+        onUiThread { (viewRegistry[viewId] as? EditText)?.setText(value) }
     }
 
     @Suppress("unused")
     fun setTextFieldOnChange(viewId: Int, callback: V8Function) {
-        (viewRegistry[viewId] as? EditText)?.addTextChangedListener(
-            object : android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    val params = V8Array(runtime).push(s.toString())
-                    callback.call(runtime, params)
-                    params.release()
+        val runtime = this.runtime ?: return
+        onUiThread {
+            (viewRegistry[viewId] as? EditText)?.addTextChangedListener(
+                object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                        val params = V8Array(runtime).push(s.toString())
+                        callback.call(runtime, params)
+                        params.release()
+                    }
+                    override fun afterTextChanged(s: android.text.Editable?) {}
                 }
-                override fun afterTextChanged(s: android.text.Editable?) {}
-            }
-        )
+            )
+        }
     }
 
     @Suppress("unused")
@@ -367,45 +393,54 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         }
 
         val adapter = ArrayAdapter(context, android.R.layout.simple_list_item_1, itemList)
-        listView.adapter = adapter
+        onUiThread { listView.adapter = adapter }
     }
 
     @Suppress("unused")
     fun setListViewOnItemTap(viewId: Int, callback: V8Function) {
-        (viewRegistry[viewId] as? android.widget.ListView)?.setOnItemClickListener { _, _, position, _ ->
-            val params = V8Array(runtime).push(position)
-            callback.call(runtime, params)
-            params.release()
+        val runtime = this.runtime ?: return
+        onUiThread {
+            (viewRegistry[viewId] as? android.widget.ListView)?.setOnItemClickListener { _, _, position, _ ->
+                val params = V8Array(runtime).push(position)
+                callback.call(runtime, params)
+                params.release()
+            }
         }
     }
 
     @Suppress("unused")
     fun setSwitchOnChange(viewId: Int, callback: V8Function) {
-        (viewRegistry[viewId] as? androidx.appcompat.widget.SwitchCompat)?.setOnCheckedChangeListener { _, isChecked ->
-            val params = V8Array(runtime).push(isChecked)
-            callback.call(runtime, params)
-            params.release()
+        val runtime = this.runtime ?: return
+        onUiThread {
+            (viewRegistry[viewId] as? androidx.appcompat.widget.SwitchCompat)?.setOnCheckedChangeListener { _, isChecked ->
+                val params = V8Array(runtime).push(isChecked)
+                callback.call(runtime, params)
+                params.release()
+            }
         }
     }
 
     @Suppress("unused")
     fun setSliderValue(viewId: Int, value: Int) {
-        (viewRegistry[viewId] as? SeekBar)?.progress = value
+        onUiThread { (viewRegistry[viewId] as? SeekBar)?.progress = value }
     }
 
     @Suppress("unused")
     fun setSliderOnChange(viewId: Int, callback: V8Function) {
-        (viewRegistry[viewId] as? SeekBar)?.setOnSeekBarChangeListener(
-            object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    val params = V8Array(runtime).push(progress)
-                    callback.call(runtime, params)
-                    params.release()
+        val runtime = this.runtime ?: return
+        onUiThread {
+            (viewRegistry[viewId] as? SeekBar)?.setOnSeekBarChangeListener(
+                object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        val params = V8Array(runtime).push(progress)
+                        callback.call(runtime, params)
+                        params.release()
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {}
                 }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            }
-        )
+            )
+        }
     }
 
     /**
@@ -416,7 +451,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = jsObject.getInteger("_viewId")
         val view = viewRegistry[viewId] ?: return
 
-        (context as? android.app.Activity)?.runOnUiThread {
+        onUiThread {
             rootView.addView(view)
         }
     }
@@ -428,7 +463,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun removeView(viewId: Int) {
         val view = viewRegistry[viewId] ?: return
 
-        (context as? android.app.Activity)?.runOnUiThread {
+        onUiThread {
             rootView.removeView(view)
         }
 
@@ -440,7 +475,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
      */
     @Suppress("unused")
     fun clearViews() {
-        (context as? android.app.Activity)?.runOnUiThread {
+        onUiThread {
             rootView.removeAllViews()
         }
         viewRegistry.clear()
@@ -451,7 +486,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
      */
     @Suppress("unused")
     fun showAlert(title: String, message: String) {
-        (context as? android.app.Activity)?.runOnUiThread {
+        onUiThread {
             android.app.AlertDialog.Builder(context)
                 .setTitle(title)
                 .setMessage(message)
@@ -465,12 +500,33 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
      */
     @Suppress("unused")
     fun showToast(message: String) {
-        (context as? android.app.Activity)?.runOnUiThread {
+        onUiThread {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     // Helper methods
+
+    /**
+     * Run [block] on the Android main thread, blocking the caller until it
+     * completes. This is a no-op when already on the main thread.
+     */
+    private fun <T> onUiThread(block: () -> T): T {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return block()
+        }
+        val result = AtomicReference<T>()
+        val latch = CountDownLatch(1)
+        mainHandler.post {
+            try {
+                result.set(block())
+            } finally {
+                latch.countDown()
+            }
+        }
+        latch.await()
+        return result.get()
+    }
 
     private fun registerView(view: View): Int {
         val viewId = nextViewId++

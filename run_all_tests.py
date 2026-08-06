@@ -9,6 +9,9 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+
 def run_command(cmd, description):
     """Run a command and return success status"""
     print(f"\n{'='*70}")
@@ -19,14 +22,14 @@ def run_command(cmd, description):
         result = subprocess.run(
             cmd,
             shell=True,
-            capture_output=False,
             text=True,
-            cwd="/home/johnsilver/focus/AggApp"
+            cwd=PROJECT_ROOT
         )
         return result.returncode == 0
     except Exception as e:
         print(f"Error: {e}")
         return False
+
 
 def main():
     print("╔" + "="*68 + "╗")
@@ -42,25 +45,25 @@ def main():
 
     # Test 1: Project Verification
     results['verification'] = run_command(
-        "python3 verify.sh 2>/dev/null || python3 /home/johnsilver/focus/AggApp/verify.sh",
+        "bash verify.sh",
         "Project Structure Verification"
     )
 
     # Test 2: Code Validation
     results['validation'] = run_command(
-        "python3 /home/johnsilver/focus/AggApp/validate.py",
+        "python3 validate.py",
         "Code Validation Suite"
     )
 
     # Test 3: JavaScript Examples
     results['examples'] = run_command(
-        "python3 /home/johnsilver/focus/AggApp/test_examples.py",
+        "python3 test_examples.py",
         "JavaScript Example Tests"
     )
 
     # Test 4: Integration Tests
     results['integration'] = run_command(
-        "python3 /home/johnsilver/focus/AggApp/test_integration.py",
+        "python3 test_integration.py",
         "Integration Test Suite"
     )
 
@@ -92,20 +95,12 @@ def main():
         print("║" + " "*15 + "🎉 ALL TESTS PASSED SUCCESSFULLY! 🎉" + " "*16 + "║")
         print("╚" + "="*68 + "╝")
         print()
-        print("ScriptHost is fully validated and ready for:")
-        print("  ✓ Build and compilation")
-        print("  ✓ Device testing")
-        print("  ✓ Security audit")
-        print("  ✓ Performance profiling")
-        print("  ✓ Beta testing")
-        print("  ✓ Production deployment")
-        print()
-        print("Next Steps:")
-        print("  1. Set up Android Studio with SDK")
+        print("Next steps:")
+        print("  1. Set up JDK 11+ and the Android SDK")
         print("  2. Build: cd android && ./gradlew assembleDebug")
-        print("  3. Test on device: ./gradlew installDebug")
-        print("  4. Run example scripts")
-        print("  5. Conduct security audit")
+        print("  3. Test: cd android && ./gradlew test")
+        print("  4. Install: cd android && ./gradlew installDebug")
+        print("  5. Run example scripts")
         return 0
     else:
         print("╔" + "="*68 + "╗")
@@ -114,6 +109,7 @@ def main():
         print()
         print("Please review the failed tests above.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -41,7 +41,6 @@ Scripts run in isolated V8 contexts with:
 Scripts are constrained by:
 
 - **Execution Time**: Maximum 30 seconds per execution
-- **Memory Limit**: Maximum 50 MB heap size
 - **CPU Monitoring**: Automatic termination of runaway scripts
 - **Network Timeout**: 10 seconds for HTTP requests
 
@@ -107,6 +106,17 @@ Scripts can be signed with RSA-2048 signatures:
 3. **Verification**: App verifies signature with public key
 4. **Rejection**: Invalid signatures are rejected
 
+When signature verification is enabled, a valid signature is mandatory:
+unsigned scripts are rejected rather than silently accepted. Locally authored
+scripts (created or edited in the app) are installed with verification
+explicitly disabled.
+
+The app embeds the platform public key used for verification
+(SHA-256 fingerprint of the X.509 SPKI encoding:
+`05eb3708f86a5919d294403da3135fa361d83842b391f9b90881ba484745f6d6`).
+The matching private key is held by the distribution channel, stored outside
+the repository, and is never embedded in the app.
+
 ### Hash Verification
 
 For local scripts without signatures:
@@ -138,7 +148,7 @@ For local scripts without signatures:
 | Malicious code execution | Sandbox isolation, API whitelist |
 | Privilege escalation | Permission system, runtime checks |
 | Data exfiltration | Network permission, storage isolation |
-| Resource exhaustion | CPU/memory limits, timeouts |
+| Resource exhaustion | Execution timeout, resource monitoring |
 | Code tampering | Signature verification, hash checks |
 | Permission abuse | User consent, dangerous permission flags |
 | Script injection | Input validation, CSP-like restrictions |
@@ -157,8 +167,9 @@ For local scripts without signatures:
 
 **Scenario 3: Memory Bomb**
 - **Attack**: Script allocates excessive memory
-- **Defense**: 50 MB heap limit, memory monitoring
-- **Result**: Script terminated when limit exceeded
+- **Defense**: 30-second execution timeout; heap monitoring is not available in
+  the bundled J2V8 runtime, so memory pressure is bounded by the timeout
+- **Result**: Script terminated when the execution timeout is reached
 
 **Scenario 4: File System Access**
 - **Attack**: Script tries to read sensitive files

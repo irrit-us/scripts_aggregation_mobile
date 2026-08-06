@@ -1,25 +1,39 @@
 package com.scripthost.engine
 
 import android.content.Context
-import com.scripthost.models.*
+import com.scripthost.models.InstallResult
+import com.scripthost.models.Permission
+import com.scripthost.models.Script
+import com.scripthost.models.ScriptCategory
+import com.scripthost.models.VerificationResult
 import com.scripthost.security.SignatureVerifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
 
 /**
- * Script Manager - Handles script installation, storage, and lifecycle
- * Manages local script repository with metadata persistence
+ * Script Manager - Handles script installation, storage, and lifecycle.
+ * Manages a local script repository with metadata persistence.
+ *
+ * @param storageDir root directory used for the repository. Injected instead of
+ *                   an Android [Context] so the manager is testable on the JVM.
+ * @param signatureVerifier verifier used to validate script signatures.
  */
-class ScriptManager(private val context: Context) {
+class ScriptManager(
+    private val storageDir: File,
+    private val signatureVerifier: SignatureVerifier = SignatureVerifier()
+) {
 
-    private val scriptsDir = File(context.filesDir, "scripts")
-    private val metadataFile = File(context.filesDir, "scripts_metadata.json")
-    private val signatureVerifier = SignatureVerifier()
+    /**
+     * Convenience constructor for app use; stores scripts in [Context.filesDir].
+     */
+    constructor(context: Context) : this(context.filesDir)
+
+    private val scriptsDir = File(storageDir, "scripts")
+    private val metadataFile = File(storageDir, "scripts_metadata.json")
 
     private val installedScripts = mutableMapOf<String, Script>()
 
@@ -29,7 +43,10 @@ class ScriptManager(private val context: Context) {
     }
 
     /**
-     * Install a script from source code
+     * Install a script from source code.
+     *
+     * When [verifySignature] is enabled, a valid signature is mandatory:
+     * unsigned scripts are rejected rather than silently accepted.
      */
     suspend fun installScript(
         name: String,
@@ -44,10 +61,16 @@ class ScriptManager(private val context: Context) {
     ): InstallResult = withContext(Dispatchers.IO) {
 
         try {
-            // Generate unique ID
+            // Validate required inputs before doing any work
+            when {
+                name.isBlank() -> return@withContext InstallResult.Failure("Script name is required")
+                version.isBlank() -> return@withContext InstallResult.Failure("Script version is required")
+                author.isBlank() -> return@withContext InstallResult.Failure("Script author is required")
+                sourceCode.isBlank() -> return@withContext InstallResult.Failure("Script source code is required")
+            }
+
             val scriptId = generateScriptId(name, author)
 
-            // Create script object
             val script = Script(
                 id = scriptId,
                 name = name,
@@ -60,25 +83,24 @@ class ScriptManager(private val context: Context) {
                 category = category
             )
 
-            // Verify signature if required
-            if (verifySignature && signature != null) {
+            if (verifySignature) {
+                if (signature.isNullOrEmpty()) {
+                    return@withContext InstallResult.Failure(
+                        "Signature required when signature verification is enabled"
+                    )
+                }
                 when (val result = signatureVerifier.verify(script)) {
-                    is VerificationResult.Valid -> {
-                        // Signature valid, continue
-                    }
+                    is VerificationResult.Valid -> Unit
                     is VerificationResult.Invalid -> {
-                        return@withContext InstallResult.Failure("Signature verification failed: ${result.reason}")
+                        return@withContext InstallResult.Failure(
+                            "Signature verification failed: ${result.reason}"
+                        )
                     }
                 }
             }
 
-            // Save script to disk
             saveScript(script)
-
-            // Add to installed scripts
             installedScripts[scriptId] = script
-
-            // Save metadata
             saveMetadata()
 
             InstallResult.Success(script)
@@ -89,17 +111,16 @@ class ScriptManager(private val context: Context) {
     }
 
     /**
-     * Install script from file
+     * Install script from a file, either a raw JavaScript source or a JSON package.
      */
     suspend fun installScriptFromFile(file: File, verifySignature: Boolean = true): InstallResult {
         return try {
             val content = file.readText()
 
-            // Try to parse as JSON package
             if (content.trim().startsWith("{")) {
                 installScriptFromJson(content, verifySignature)
             } else {
-                // Treat as raw JavaScript
+                // Raw JavaScript, treated as a local unsigned script
                 installScript(
                     name = file.nameWithoutExtension,
                     version = "1.0.0",
@@ -116,7 +137,7 @@ class ScriptManager(private val context: Context) {
     }
 
     /**
-     * Install script from JSON package
+     * Install script from a JSON package (see [exportScript] for the format).
      */
     private suspend fun installScriptFromJson(json: String, verifySignature: Boolean): InstallResult {
         return try {
@@ -128,11 +149,12 @@ class ScriptManager(private val context: Context) {
             val description = jsonObject.optString("description", "")
             val sourceCode = jsonObject.getString("sourceCode")
             val signature = jsonObject.optString("signature", null)
-            val category = ScriptCategory.valueOf(
-                jsonObject.optString("category", ScriptCategory.UTILITY.name)
-            )
+            val category = try {
+                ScriptCategory.valueOf(jsonObject.optString("category", ScriptCategory.UTILITY.name))
+            } catch (e: IllegalArgumentException) {
+                ScriptCategory.UTILITY
+            }
 
-            // Parse permissions
             val permissionsArray = jsonObject.optJSONArray("permissions") ?: JSONArray()
             val permissions = mutableListOf<Permission>()
             for (i in 0 until permissionsArray.length()) {
@@ -158,20 +180,13 @@ class ScriptManager(private val context: Context) {
     }
 
     /**
-     * Uninstall a script
+     * Uninstall a script.
      */
     suspend fun uninstallScript(scriptId: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            // Remove from installed scripts
             installedScripts.remove(scriptId)
-
-            // Delete script file
-            val scriptFile = File(scriptsDir, "$scriptId.js")
-            scriptFile.delete()
-
-            // Save metadata
+            File(scriptsDir, "$scriptId.js").delete()
             saveMetadata()
-
             true
         } catch (e: Exception) {
             false
@@ -179,7 +194,7 @@ class ScriptManager(private val context: Context) {
     }
 
     /**
-     * Update a script
+     * Update a script's version and source code.
      */
     suspend fun updateScript(scriptId: String, newVersion: String, newSourceCode: String): InstallResult {
         val existingScript = installedScripts[scriptId]
@@ -199,40 +214,42 @@ class ScriptManager(private val context: Context) {
     }
 
     /**
-     * Get installed script by ID
+     * Get installed script by ID.
      */
     fun getScript(scriptId: String): Script? {
         return installedScripts[scriptId]
     }
 
     /**
-     * Get all installed scripts
+     * Get all installed scripts.
      */
     fun getAllScripts(): List<Script> {
         return installedScripts.values.toList()
     }
 
     /**
-     * Get scripts by category
+     * Get scripts by category.
      */
     fun getScriptsByCategory(category: ScriptCategory): List<Script> {
         return installedScripts.values.filter { it.category == category }
     }
 
     /**
-     * Search scripts by name or description
+     * Search scripts by name, description, or author.
      */
     fun searchScripts(query: String): List<Script> {
-        val lowerQuery = query.lowercase()
+        val lowerQuery = query.trim().lowercase()
+        if (lowerQuery.isEmpty()) return emptyList()
+
         return installedScripts.values.filter {
             it.name.lowercase().contains(lowerQuery) ||
-            it.description.lowercase().contains(lowerQuery) ||
-            it.author.lowercase().contains(lowerQuery)
+                it.description.lowercase().contains(lowerQuery) ||
+                it.author.lowercase().contains(lowerQuery)
         }
     }
 
     /**
-     * Export script to JSON package
+     * Export script to a JSON package.
      */
     fun exportScript(scriptId: String): String? {
         val script = installedScripts[scriptId] ?: return null
@@ -274,8 +291,7 @@ class ScriptManager(private val context: Context) {
         }
 
         try {
-            val json = metadataFile.readText()
-            val jsonArray = JSONArray(json)
+            val jsonArray = JSONArray(metadataFile.readText())
 
             for (i in 0 until jsonArray.length()) {
                 val jsonObject = jsonArray.getJSONObject(i)
@@ -344,7 +360,11 @@ class ScriptManager(private val context: Context) {
             Permission.fromString(permName)?.let { permissions.add(it) }
         }
 
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        val category = try {
+            ScriptCategory.valueOf(jsonObject.optString("category", ScriptCategory.UTILITY.name))
+        } catch (e: IllegalArgumentException) {
+            ScriptCategory.UTILITY
+        }
 
         return Script(
             id = scriptId,
@@ -358,9 +378,7 @@ class ScriptManager(private val context: Context) {
             createdAt = Date(jsonObject.optLong("createdAt", System.currentTimeMillis())),
             updatedAt = Date(jsonObject.optLong("updatedAt", System.currentTimeMillis())),
             iconUrl = jsonObject.optString("iconUrl", null),
-            category = ScriptCategory.valueOf(
-                jsonObject.optString("category", ScriptCategory.UTILITY.name)
-            )
+            category = category
         )
     }
 }

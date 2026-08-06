@@ -19,7 +19,6 @@
     <string name="script_installed">Script Installed</string>
     <string name="script_error">Script Error</string>
     <string name="execution_timeout">Execution Timeout</string>
-    <string name="memory_limit_exceeded">Memory Limit Exceeded</string>
     <string name="network_error">Network Error</string>
     <string name="storage_error">Storage Error</string>
     <string name="signature_invalid">Invalid Signature</string>

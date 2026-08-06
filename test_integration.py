@@ -37,7 +37,7 @@ class IntegrationTester:
         for test_name, test_func in tests:
             self.run_test(test_name, test_func)
 
-        self.print_summary()
+        return self.print_summary()
 
     def run_test(self, name: str, test_func):
         """Run a single test"""
@@ -273,7 +273,7 @@ class IntegrationTester:
         # Check for resource limits
         resource_features = [
             ('maxExecutionTimeMs', 'Execution timeout'),
-            ('maxMemoryBytes', 'Memory limit'),
+            ('withTimeout', 'Timeout enforcement'),
             ('fun release', 'Resource cleanup'),
         ]
 
@@ -314,10 +314,12 @@ class IntegrationTester:
             print()
             print("Please review the failed tests above.")
 
+        return self.tests_failed == 0
+
 def main():
-    project_root = "/home/johnsilver/focus/AggApp"
+    project_root = str(Path(__file__).resolve().parent)
     tester = IntegrationTester(project_root)
-    tester.run_all_tests()
+    exit(0 if tester.run_all_tests() else 1)
 
 if __name__ == "__main__":
     main()

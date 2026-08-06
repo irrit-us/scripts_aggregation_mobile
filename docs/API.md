@@ -481,32 +481,66 @@ showToast("Hello World");
 
 ### setTimeout(callback, delay)
 
-Execute callback after delay.
+Execute callback after delay. Returns a timer ID that can be passed to
+`clearTimeout`.
 
 **Parameters:**
 - `callback` (function) - Function to execute
 - `delay` (number) - Delay in milliseconds
 
 ```javascript
-setTimeout(function() {
+var timer = setTimeout(function() {
     console.log("Delayed execution");
 }, 1000);
 ```
 
 ---
 
+### clearTimeout(timerId)
+
+Cancel a timer previously created with `setTimeout`.
+
+**Parameters:**
+- `timerId` (number) - Timer ID returned by `setTimeout`
+
+```javascript
+var timer = setTimeout(function() {
+    console.log("This will not run");
+}, 1000);
+clearTimeout(timer);
+```
+
+---
+
 ### setInterval(callback, interval)
 
-Execute callback repeatedly at interval.
+Execute callback repeatedly at interval. Returns a timer ID that can be passed
+to `clearInterval`.
 
 **Parameters:**
 - `callback` (function) - Function to execute
 - `interval` (number) - Interval in milliseconds
 
 ```javascript
-setInterval(function() {
+var timer = setInterval(function() {
     console.log("Repeated execution");
 }, 1000);
+```
+
+---
+
+### clearInterval(timerId)
+
+Cancel a timer previously created with `setInterval`.
+
+**Parameters:**
+- `timerId` (number) - Timer ID returned by `setInterval`
+
+```javascript
+var timer = setInterval(function() {
+    console.log("Repeated execution");
+}, 1000);
+clearInterval(timer);
 ```
 
 ---
@@ -549,7 +583,6 @@ Dangerous permissions require user approval at runtime.
 ## Limitations
 
 - Maximum execution time: 30 seconds
-- Maximum memory: 50 MB
 - Network timeout: 10 seconds
 - File operations limited to app's private storage
 

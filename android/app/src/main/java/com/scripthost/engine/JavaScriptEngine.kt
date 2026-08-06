@@ -4,18 +4,32 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.eclipsesource.v8.V8
-import com.eclipsesource.v8.V8Array
+import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
-import com.scripthost.models.Script
 import com.scripthost.models.ScriptContext
 import com.scripthost.models.ScriptState
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * JavaScript engine implementation using J2V8
- * Provides sandboxed script execution with resource monitoring
+ * JavaScript engine implementation using J2V8.
+ * Provides sandboxed script execution with resource monitoring.
+ *
+ * Note: J2V8 runtimes are not thread-safe; this engine keeps all V8 access on
+ * the thread that executes a script. UI bridge callbacks should be marshaled
+ * through the bridge's own main-thread handler.
  */
 class JavaScriptEngine(private val context: Context) : ScriptEngine {
 
@@ -25,7 +39,6 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
 
     // Resource limits
     private val maxExecutionTimeMs = 30_000L // 30 seconds
-    private val maxMemoryBytes = 50 * 1024 * 1024L // 50 MB
 
     // Active script contexts
     private val activeContexts = ConcurrentHashMap<String, ScriptContext>()
@@ -33,12 +46,16 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     // Bridge registry
     private val bridges = mutableListOf<ScriptBridge>()
 
+    // Timer bookkeeping so scripts can clear timers and the engine can clean up
+    private val timerIdGenerator = AtomicInteger(0)
+    private val activeTimers = ConcurrentHashMap<Int, Runnable>()
+
     init {
         setupGlobalEnvironment()
     }
 
     /**
-     * Setup global JavaScript environment with console and basic APIs
+     * Setup global JavaScript environment with console and timer APIs.
      */
     private fun setupGlobalEnvironment() {
         // Console API
@@ -51,15 +68,19 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
 
         console.release()
 
-        // setTimeout/setInterval (simplified)
+        // Timers
         runtime.registerJavaMethod(this, "setTimeout", "setTimeout",
             arrayOf(V8Object::class.java, Int::class.java))
         runtime.registerJavaMethod(this, "setInterval", "setInterval",
             arrayOf(V8Object::class.java, Int::class.java))
+        runtime.registerJavaMethod(this, "clearTimeout", "clearTimeout",
+            arrayOf(Int::class.java))
+        runtime.registerJavaMethod(this, "clearInterval", "clearInterval",
+            arrayOf(Int::class.java))
     }
 
     /**
-     * Register a bridge to expose native functionality
+     * Register a bridge to expose native functionality.
      */
     override fun registerBridge(bridge: ScriptBridge) {
         bridges.add(bridge)
@@ -67,14 +88,14 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * Execute a script with sandboxing and monitoring
+     * Execute a script with sandboxing and monitoring.
      */
     override suspend fun execute(scriptContext: ScriptContext): ExecutionResult = withContext(Dispatchers.Default) {
         val script = scriptContext.script
 
         try {
-            // Update state
             scriptContext.state = ScriptState.RUNNING
+            scriptContext.startTime = System.currentTimeMillis()
             activeContexts[script.id] = scriptContext
 
             // Start resource monitoring
@@ -85,8 +106,11 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
                 try {
                     val output = runtime.executeScript(script.sourceCode, script.name, 0)
                     val resultString = output?.toString() ?: "undefined"
-                    output?.release()
+                    (output as? V8Object)?.release()
                     ExecutionResult.Success(resultString)
+                } catch (e: CancellationException) {
+                    // Let timeouts/cancellation propagate to the outer handler
+                    throw e
                 } catch (e: Exception) {
                     ExecutionResult.Error(e.message ?: "Unknown execution error")
                 }
@@ -95,7 +119,6 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
             // Stop monitoring
             monitorJob.cancel()
 
-            // Update state
             scriptContext.state = ScriptState.STOPPED
             scriptContext.endTime = System.currentTimeMillis()
 
@@ -105,6 +128,10 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
             scriptContext.state = ScriptState.ERROR
             scriptContext.errorMessage = "Script execution timeout"
             ExecutionResult.Error("Execution timeout after ${maxExecutionTimeMs}ms")
+
+        } catch (e: CancellationException) {
+            // Preserve structured-concurrency cancellation (e.g. activity destroyed)
+            throw e
 
         } catch (e: Exception) {
             scriptContext.state = ScriptState.ERROR
@@ -117,7 +144,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * Stop a running script
+     * Stop a running script.
      */
     override fun stop(scriptId: String) {
         activeContexts[scriptId]?.let { context ->
@@ -125,30 +152,20 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
             context.endTime = System.currentTimeMillis()
             activeContexts.remove(scriptId)
 
-            // Terminate V8 execution (requires creating new runtime)
-            // For production, implement proper script isolation per context
+            // J2V8 cannot safely interrupt an in-flight executeScript call;
+            // the resource monitor and withTimeout enforce the execution limit.
+            // Pending timers are cancelled so callbacks cannot outlive the script.
+            clearAllTimers()
         }
     }
 
     /**
-     * Monitor script resource usage
+     * Monitor script resource usage.
      */
     private fun startResourceMonitoring(scriptContext: ScriptContext): Job {
         return engineScope.launch {
             while (isActive && scriptContext.state == ScriptState.RUNNING) {
                 delay(1000) // Check every second
-
-                // Check memory usage
-                val heapStatistics = runtime.getHeapStatistics()
-                val usedMemory = heapStatistics.usedHeapSize()
-                heapStatistics.release()
-
-                if (usedMemory > maxMemoryBytes) {
-                    scriptContext.state = ScriptState.ERROR
-                    scriptContext.errorMessage = "Memory limit exceeded"
-                    stop(scriptContext.script.id)
-                    break
-                }
 
                 // Check execution time
                 val executionTime = System.currentTimeMillis() - scriptContext.startTime
@@ -163,7 +180,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * Console.log implementation
+     * Console.log implementation.
      */
     @Suppress("unused")
     fun consoleLog(message: String) {
@@ -171,7 +188,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * Console.warn implementation
+     * Console.warn implementation.
      */
     @Suppress("unused")
     fun consoleWarn(message: String) {
@@ -179,7 +196,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * Console.error implementation
+     * Console.error implementation.
      */
     @Suppress("unused")
     fun consoleError(message: String) {
@@ -187,37 +204,74 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * setTimeout implementation
+     * setTimeout implementation. Returns a timer ID usable with clearTimeout.
      */
     @Suppress("unused")
     fun setTimeout(callback: V8Object, delay: Int): Int {
-        mainHandler.postDelayed({
+        if (callback.isReleased) return 0
+
+        val timerId = timerIdGenerator.incrementAndGet()
+        val runnable = Runnable {
+            activeTimers.remove(timerId)
             if (!callback.isReleased) {
-                callback.executeVoidFunction()
+                (callback as? V8Function)?.call(runtime, null)
             }
-        }, delay.toLong())
-        return 0 // Return timer ID (simplified)
+        }
+        activeTimers[timerId] = runnable
+        mainHandler.postDelayed(runnable, delay.coerceAtLeast(0).toLong())
+        return timerId
     }
 
     /**
-     * setInterval implementation
+     * setInterval implementation. Returns a timer ID usable with clearInterval.
      */
     @Suppress("unused")
     fun setInterval(callback: V8Object, interval: Int): Int {
-        // Simplified implementation
-        mainHandler.post(object : Runnable {
+        if (callback.isReleased) return 0
+
+        val timerId = timerIdGenerator.incrementAndGet()
+        val runnable = object : Runnable {
             override fun run() {
-                if (!callback.isReleased) {
-                    callback.executeVoidFunction()
-                    mainHandler.postDelayed(this, interval.toLong())
+                // Timer was cleared; stop re-scheduling
+                if (activeTimers[timerId] !== this) return
+
+                if (callback.isReleased) {
+                    activeTimers.remove(timerId)
+                    return
                 }
+
+                (callback as? V8Function)?.call(runtime, null)
+                mainHandler.postDelayed(this, interval.coerceAtLeast(0).toLong())
             }
-        })
-        return 0 // Return timer ID (simplified)
+        }
+        activeTimers[timerId] = runnable
+        mainHandler.post(runnable)
+        return timerId
     }
 
     /**
-     * Evaluate JavaScript expression
+     * clearTimeout implementation.
+     */
+    @Suppress("unused")
+    fun clearTimeout(timerId: Int) {
+        activeTimers.remove(timerId)?.let { mainHandler.removeCallbacks(it) }
+    }
+
+    /**
+     * clearInterval implementation.
+     */
+    @Suppress("unused")
+    fun clearInterval(timerId: Int) {
+        clearTimeout(timerId)
+    }
+
+    private fun clearAllTimers() {
+        activeTimers.forEach { (_, runnable) -> mainHandler.removeCallbacks(runnable) }
+        activeTimers.clear()
+    }
+
+    /**
+     * Evaluate a JavaScript expression.
      */
     override fun evaluate(expression: String): Any? {
         return try {
@@ -235,10 +289,11 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * Release resources
+     * Release resources.
      */
     override fun release() {
         engineScope.cancel()
+        clearAllTimers()
         bridges.forEach { it.unregister() }
         bridges.clear()
         activeContexts.clear()
@@ -247,7 +302,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
 }
 
 /**
- * Script engine interface
+ * Script engine interface.
  */
 interface ScriptEngine {
     suspend fun execute(scriptContext: ScriptContext): ExecutionResult
@@ -258,7 +313,7 @@ interface ScriptEngine {
 }
 
 /**
- * Script execution result
+ * Script execution result.
  */
 sealed class ExecutionResult {
     data class Success(val output: String) : ExecutionResult()
@@ -266,7 +321,7 @@ sealed class ExecutionResult {
 }
 
 /**
- * Bridge interface for exposing native APIs to scripts
+ * Bridge interface for exposing native APIs to scripts.
  */
 interface ScriptBridge {
     fun register(runtime: V8)

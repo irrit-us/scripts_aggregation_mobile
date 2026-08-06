@@ -124,7 +124,7 @@ API Surface:
 
 📁 PROJECT STRUCTURE
 
-AggApp/
+scripts_aggregation_mobile/
 ├── android/              ✅ Complete Android implementation
 ├── ios/                  ⏳ Placeholder for future iOS version
 ├── shared/               ⏳ Placeholder for shared code

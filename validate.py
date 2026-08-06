@@ -31,7 +31,7 @@ class CodeValidator:
         self.validate_configuration()
         self.validate_architecture()
 
-        self.print_summary()
+        return self.print_summary()
 
     def validate_kotlin_files(self):
         """Validate Kotlin source files"""
@@ -236,7 +236,7 @@ class CodeValidator:
             return True
 
 def main():
-    project_root = "/home/johnsilver/focus/AggApp"
+    project_root = str(Path(__file__).resolve().parent)
     validator = CodeValidator(project_root)
     success = validator.validate_all()
 

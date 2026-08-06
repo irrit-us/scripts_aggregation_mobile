@@ -23,6 +23,9 @@
     <!-- Microphone permission (optional, requested at runtime) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Haptics (used by Device.vibrate()) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".ScriptHostApplication"
         android:allowBackup="true"

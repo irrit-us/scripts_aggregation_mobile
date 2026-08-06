@@ -41,7 +41,7 @@ A powerful mobile script host environment that enables users to write and instal
 ## Project Structure
 
 ```
-AggApp/
+scripts_aggregation_mobile/
 ├── android/                 # Android native implementation
 │   ├── app/
 │   │   └── src/main/

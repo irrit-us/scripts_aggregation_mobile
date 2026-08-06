@@ -30,7 +30,7 @@ class JavaScriptTester:
         for js_file in js_files:
             self.test_javascript_file(js_file)
 
-        self.print_summary()
+        return self.print_summary()
 
     def test_javascript_file(self, file_path: Path):
         """Test individual JavaScript file"""
@@ -248,10 +248,12 @@ class JavaScriptTester:
             status = "✅" if result['success'] else "❌"
             print(f"  {status} {result['file']}: {result['passed']}/{result['total']}")
 
+        return passed_files == total_files
+
 def main():
-    project_root = "/home/johnsilver/focus/AggApp"
+    project_root = str(Path(__file__).resolve().parent)
     tester = JavaScriptTester(project_root)
-    tester.run_all_tests()
+    exit(0 if tester.run_all_tests() else 1)
 
 if __name__ == "__main__":
     main()

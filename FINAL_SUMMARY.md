@@ -265,7 +265,7 @@ ScriptHost is a **complete, fully tested, and production-ready** mobile script a
 
 ## Resources
 
-- **Project Root**: `/home/johnsilver/focus/AggApp`
+- **Project Root**: `scripts_aggregation_mobile/`
 - **Documentation**: `docs/` directory
 - **Examples**: `scripts/examples/` directory
 - **Tests**: `tests/` directory

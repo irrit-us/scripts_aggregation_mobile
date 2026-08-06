@@ -194,7 +194,7 @@ Include:
 ## Project Structure
 
 ```
-AggApp/
+scripts_aggregation_mobile/
 ├── android/              # Android app
 │   ├── app/
 │   │   └── src/

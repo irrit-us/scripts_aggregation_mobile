@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Missing Gradle wrapper; `./gradlew` now works as documented
+- Build configuration for AGP 8.2: enabled `android.useAndroidX` and removed
+  legacy repository declarations that conflicted with the settings plugin
+  management (previously blocked all builds)
+- J2V8 API mismatches: `executeVoidFunction` replaced with the actual
+  `V8Function.call` API, and heap-statistics monitoring removed (not exposed
+  by J2V8 6.2.1)
+- Embedded platform public key was not a valid RSA key; replaced with a real
+  generated RSA-2048 key
+- Launcher icons referenced by the manifest but never shipped (build failure)
+- Missing `VIBRATE` permission while `Device.vibrate()` requires it
+- Signature verification was silently skipped for unsigned scripts when
+  verification was enabled; it is now enforced
+- Timer IDs always returned `0` and `clearTimeout`/`clearInterval` were missing
+- UI bridge touched views from background threads; view creation and mutation
+  now happen on the main thread
+
+### Changed
+- `ScriptManager` now takes an injectable storage directory (plus a `Context`
+  convenience constructor), making it testable on the JVM
+- `SignatureVerifier` accepts an injectable public key so sign/verify
+  round-trips are consistent
+- Unit tests moved into `android/app/src/test/` where Gradle actually runs
+  them, replacing placeholder assertions with real behavioral tests
+- `run_all_tests.py` no longer hard-codes paths from another machine
+
 ### Added
 - Initial project structure
 - JavaScript engine integration with J2V8

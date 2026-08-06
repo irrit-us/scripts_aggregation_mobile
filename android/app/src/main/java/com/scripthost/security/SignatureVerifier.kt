@@ -2,43 +2,60 @@ package com.scripthost.security
 
 import com.scripthost.models.Script
 import com.scripthost.models.VerificationResult
-import java.security.*
+import java.security.KeyFactory
+import java.security.KeyPair
+import java.security.KeyPairGenerator
+import java.security.MessageDigest
+import java.security.PrivateKey
+import java.security.PublicKey
+import java.security.Signature
+import java.security.SignatureException
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 
 /**
- * Script Signature Verifier - Validates script integrity and authenticity
- * Uses RSA digital signatures to ensure scripts haven't been tampered with
+ * Script Signature Verifier - Validates script integrity and authenticity.
+ * Uses RSA digital signatures to ensure scripts haven't been tampered with.
+ *
+ * @param publicKey the trusted key used to verify signatures. Defaults to the
+ * platform key embedded below; tests and third-party verifiers can inject
+ * their own key so that sign/verify round-trips are consistent.
  */
-class SignatureVerifier {
+class SignatureVerifier(
+    private val publicKey: PublicKey = DEFAULT_PUBLIC_KEY
+) {
 
     companion object {
         private const val SIGNATURE_ALGORITHM = "SHA256withRSA"
 
-        // In production, this would be securely embedded or fetched from a trusted source
-        // For now, this is a placeholder public key
+        // Platform public key. The matching private key is held by the
+        // distribution channel and is never embedded in the app.
         private const val PUBLIC_KEY_BASE64 = """
-            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy8Dbv8prpJ/0kKhlGeJY
-            ozo2t60EG8EocLo8vqGo/qhoq0eI3og8WyhmxopTShaIarKT7nBefJWmbjDSKkq0
-            Y/n0cYpbH/ODdEz6zuE3lpjHGsrR5oc2FEXI1MOWspvSEm9JoS/xvscP1YO5ceKy
-            1ye9WqMRHPQBG9ac2DC0lCW6r4wlmf7/fJUgMHDV155zuUZ/TSpb+W2B9N0RwQse
-            K9UqRdmO5YSrCYwm+tG227hrOvFhVirvDevcdHP+EDtFOOzMJKXc9qJgs7E0imqR
-            wIp9qAaLCXmSs/lvK96wZ9rwaUVGXzHrXwtkRo6vvv2Wb3j5MpCPX7P8MoqQVVsJ
-            AgMBAAE=
+            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzCWx3BAbv/NNddgrsnqe
+            lTa0QTCv3gQrWfj66YCk2IQ7uGLpPjVnzdLlM1SSKHXmDskP0viiIRf7qenkZx0I
+            9YWdO3yj5q7kqAYFmik27EJV8x5McNUm//XZhmbzXI9TrvfdIKjwOZpAuMeyhsat
+            qMyNoklR7FhHU3y9243Dot8V3TrqybUoFCkctAgYsVSFftFtjRSbGeZT5IpsC1rw
+            vNrcxYF79jeVac05yZnRngY1ws6Gx+MQE0aRlB5DRnGU9CjrYNjoXeJCDsceSkb9
+            9iQPzkMZhJjaAKocbXFTdNUwvLaCRHccprL8Ch15LbdMPibyU0OpWHk7632q+mcC
+            2QIDAQAB
         """
-    }
 
-    private val publicKey: PublicKey by lazy {
-        val keyBytes = Base64.getDecoder().decode(PUBLIC_KEY_BASE64.replace("\\s".toRegex(), ""))
-        val keySpec = X509EncodedKeySpec(keyBytes)
-        KeyFactory.getInstance("RSA").generatePublic(keySpec)
+        private val DEFAULT_PUBLIC_KEY: PublicKey by lazy {
+            val keyBytes = Base64.getDecoder().decode(PUBLIC_KEY_BASE64.replace("\\s".toRegex(), ""))
+            val keySpec = X509EncodedKeySpec(keyBytes)
+            KeyFactory.getInstance("RSA").generatePublic(keySpec)
+        }
     }
 
     /**
-     * Verify script signature
+     * Verify script signature against the verifier's trusted public key.
      */
-    fun verify(script: Script): VerificationResult {
-        // If no signature provided, check if it's required
+    fun verify(script: Script): VerificationResult = verify(script, publicKey)
+
+    /**
+     * Verify script signature against an explicit public key.
+     */
+    fun verify(script: Script, publicKey: PublicKey): VerificationResult {
         if (script.signature.isNullOrEmpty()) {
             return VerificationResult.Invalid("No signature provided")
         }
@@ -46,21 +63,14 @@ class SignatureVerifier {
         return try {
             val signature = Signature.getInstance(SIGNATURE_ALGORITHM)
             signature.initVerify(publicKey)
+            signature.update(buildScriptData(script).toByteArray(Charsets.UTF_8))
 
-            // Sign the script content
-            val scriptData = buildScriptData(script)
-            signature.update(scriptData.toByteArray())
-
-            // Verify signature
             val signatureBytes = Base64.getDecoder().decode(script.signature)
-            val isValid = signature.verify(signatureBytes)
-
-            if (isValid) {
+            if (signature.verify(signatureBytes)) {
                 VerificationResult.Valid
             } else {
                 VerificationResult.Invalid("Signature verification failed")
             }
-
         } catch (e: SignatureException) {
             VerificationResult.Invalid("Invalid signature format: ${e.message}")
         } catch (e: Exception) {
@@ -69,7 +79,7 @@ class SignatureVerifier {
     }
 
     /**
-     * Build canonical script data for signing
+     * Build canonical script data for signing.
      */
     private fun buildScriptData(script: Script): String {
         return buildString {
@@ -86,8 +96,7 @@ class SignatureVerifier {
     }
 
     /**
-     * Generate key pair (for script authors)
-     * This would be used by script developers to sign their scripts
+     * Generate key pair (for script authors).
      */
     fun generateKeyPair(): KeyPair {
         val keyPairGenerator = KeyPairGenerator.getInstance("RSA")
@@ -96,34 +105,30 @@ class SignatureVerifier {
     }
 
     /**
-     * Sign script (for script authors)
+     * Sign script (for script authors).
      */
     fun sign(script: Script, privateKey: PrivateKey): String {
         val signature = Signature.getInstance(SIGNATURE_ALGORITHM)
         signature.initSign(privateKey)
-
-        val scriptData = buildScriptData(script)
-        signature.update(scriptData.toByteArray())
+        signature.update(buildScriptData(script).toByteArray(Charsets.UTF_8))
 
         val signatureBytes = signature.sign()
         return Base64.getEncoder().encodeToString(signatureBytes)
     }
 
     /**
-     * Verify script hash (alternative to signature for local scripts)
+     * Verify script hash (alternative to signature for local scripts).
      */
     fun verifyHash(script: Script, expectedHash: String): Boolean {
-        val actualHash = computeHash(script)
-        return actualHash == expectedHash
+        return computeHash(script) == expectedHash
     }
 
     /**
-     * Compute SHA-256 hash of script
+     * Compute SHA-256 hash of script.
      */
     fun computeHash(script: Script): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        val scriptData = buildScriptData(script)
-        val hashBytes = digest.digest(scriptData.toByteArray())
+        val hashBytes = digest.digest(buildScriptData(script).toByteArray(Charsets.UTF_8))
         return Base64.getEncoder().encodeToString(hashBytes)
     }
 }

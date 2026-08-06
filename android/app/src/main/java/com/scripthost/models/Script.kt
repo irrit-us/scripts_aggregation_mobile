@@ -91,7 +91,7 @@ data class ScriptContext(
     var state: ScriptState = ScriptState.IDLE,
     val grantedPermissions: MutableSet<Permission> = mutableSetOf(),
     var errorMessage: String? = null,
-    val startTime: Long = 0,
+    var startTime: Long = 0,
     var endTime: Long = 0
 )
 
