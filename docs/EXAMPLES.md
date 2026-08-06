@@ -129,6 +129,55 @@ Tap "Delete" to remove data
 
 ---
 
+### 7. Agent Conversation (`agent_conversation.js`)
+
+**Description**: Wrapped agent chat against an OpenAI-compatible chat completions
+endpoint. Reads the API key from the configuration interface and sends custom
+authenticated API calls.
+
+**Concepts Demonstrated**:
+- Configuration interface (`Config.get`)
+- Custom API calls with `Authorization` headers (`Network.post` with headers)
+- JSON request/response handling
+- Async callbacks and error handling
+- Loading states and UI updates
+
+**Permissions Required**: `CONFIG`, `INTERNET`
+
+**Usage**:
+```bash
+1. Open Settings and add OPENAI_API_KEY (optionally OPENAI_API_BASE)
+2. Import agent_conversation.js into ScriptHost
+3. Enter a message and tap "Send"
+4. The agent's reply is rendered in the response label
+```
+
+---
+
+### 8. Server Monitor (`server_monitor.js`)
+
+**Description**: Polls a server health endpoint and shows live UP/DOWN status.
+Uses `setInterval` for polling and optional bearer-token authentication.
+
+**Concepts Demonstrated**:
+- Configuration interface (`Config.get`)
+- Polling with `setInterval` / `clearInterval`
+- Custom API calls with optional auth headers (`Network.get` with headers)
+- Request de-duplication (skips overlapping polls)
+- Status rendering and error handling
+
+**Permissions Required**: `CONFIG`, `INTERNET`
+
+**Usage**:
+```bash
+1. Open Settings and add MONITOR_URL (optionally MONITOR_API_KEY)
+2. Import server_monitor.js into ScriptHost
+3. Tap "Start Monitoring" to begin polling every 5 seconds
+4. Tap "Stop Monitoring" to pause
+```
+
+---
+
 ## Creating Your Own Scripts
 
 ### Basic Template

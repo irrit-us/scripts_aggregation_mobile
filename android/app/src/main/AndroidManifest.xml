@@ -69,6 +69,11 @@
             android:exported="false"
             android:theme="@style/Theme.ScriptHost" />
 
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ScriptHost" />
+
     </application>
 
 </manifest>

@@ -21,20 +21,20 @@ FAILED=0
 # Check function
 check_file() {
     if [ -f "$1" ]; then
-        echo -e "${GREEN}✓${NC} $2"
+        echo -e "${GREEN}PASS${NC} $2"
         ((PASSED++))
     else
-        echo -e "${RED}✗${NC} $2 (missing: $1)"
+        echo -e "${RED}FAIL${NC} $2 (missing: $1)"
         ((FAILED++))
     fi
 }
 
 check_dir() {
     if [ -d "$1" ]; then
-        echo -e "${GREEN}✓${NC} $2"
+        echo -e "${GREEN}PASS${NC} $2"
         ((PASSED++))
     else
-        echo -e "${RED}✗${NC} $2 (missing: $1)"
+        echo -e "${RED}FAIL${NC} $2 (missing: $1)"
         ((FAILED++))
     fi
 }
@@ -76,6 +76,9 @@ check_file "android/app/src/main/java/com/scripthost/security/SignatureVerifier.
 check_file "android/app/src/main/java/com/scripthost/ui/MainActivity.kt" "Main activity"
 check_file "android/app/src/main/java/com/scripthost/ui/ScriptEditorActivity.kt" "Script editor"
 check_file "android/app/src/main/java/com/scripthost/ui/ScriptRuntimeActivity.kt" "Script runtime"
+check_file "android/app/src/main/java/com/scripthost/ui/SettingsActivity.kt" "Settings activity"
+check_file "android/app/src/main/java/com/scripthost/config/ConfigStore.kt" "Config store"
+check_file "android/app/src/main/java/com/scripthost/bridge/ConfigBridge.kt" "Config bridge"
 echo ""
 
 echo "Checking Resources..."
@@ -99,12 +102,15 @@ check_file "scripts/examples/todo_list.js" "Todo List example"
 check_file "scripts/examples/network_request.js" "Network Request example"
 check_file "scripts/examples/sensors.js" "Sensors example"
 check_file "scripts/examples/storage.js" "Storage example"
+check_file "scripts/examples/agent_conversation.js" "Agent conversation example"
+check_file "scripts/examples/server_monitor.js" "Server monitor example"
 echo ""
 
 echo "Checking Tests..."
 check_file "tests/README.md" "Test documentation"
 check_file "android/app/src/test/java/com/scripthost/engine/ScriptManagerTest.kt" "Script manager tests"
 check_file "android/app/src/test/java/com/scripthost/security/SignatureVerifierTest.kt" "Signature verifier tests"
+check_file "android/app/src/test/java/com/scripthost/config/ConfigStoreTest.kt" "Config store tests"
 echo ""
 
 echo "========================================="

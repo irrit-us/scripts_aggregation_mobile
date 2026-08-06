@@ -65,7 +65,7 @@ UI.addView(button);
 
 ## Try Examples
 
-ScriptHost includes 6 example scripts:
+ScriptHost includes 8 example scripts:
 
 1. **Hello World** - Basic button and alert
 2. **Counter** - State management demo
@@ -73,6 +73,8 @@ ScriptHost includes 6 example scripts:
 4. **Network Request** - API integration
 5. **Sensors** - Accelerometer demo
 6. **Storage** - File I/O operations
+7. **Agent Conversation** - Wrapped agent chat via an OpenAI-compatible API
+8. **Server Monitor** - Polls and displays server health status
 
 To try an example:
 
@@ -113,6 +115,26 @@ Network.get("https://api.github.com/users/octocat", function(data, error) {
 Storage.writeFile("mydata.txt", "Hello World");
 let content = Storage.readFile("mydata.txt");
 console.log(content); // "Hello World"
+```
+
+### Configure API Keys
+
+Add keys in the app: open Settings from the main screen, tap **Add Key**, and
+enter a name and value (for example `OPENAI_API_KEY`). Scripts read them via
+the `Config` bridge:
+
+```javascript
+let apiKey = Config.get("OPENAI_API_KEY");
+if (!apiKey) {
+    showToast("No API key configured");
+} else {
+    Network.post("https://api.example.com/v1/chat",
+        { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+        JSON.stringify({ prompt: "Hello" }),
+        function(data, error) {
+            showAlert("Response", error ? error : data);
+        });
+}
 ```
 
 ### Create a List
@@ -197,4 +219,4 @@ Need help?
 - Ask in discussions
 - Contact maintainers
 
-Happy scripting! 🚀
+Happy scripting!

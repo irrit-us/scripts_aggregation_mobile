@@ -1,6 +1,7 @@
 package com.scripthost
 
 import android.app.Application
+import com.scripthost.config.ConfigStore
 import com.scripthost.engine.ScriptManager
 import com.scripthost.security.PermissionManager
 
@@ -15,6 +16,9 @@ class ScriptHostApplication : Application() {
     lateinit var permissionManager: PermissionManager
         private set
 
+    lateinit var configStore: ConfigStore
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -22,6 +26,7 @@ class ScriptHostApplication : Application() {
         // Initialize managers
         scriptManager = ScriptManager(this)
         permissionManager = PermissionManager(this)
+        configStore = ConfigStore(filesDir)
     }
 
     companion object {

@@ -83,7 +83,7 @@ def main():
     total = len(results)
 
     for key, name in test_names.items():
-        status = "✅ PASSED" if results[key] else "❌ FAILED"
+        status = "PASSED" if results[key] else "FAILED"
         print(f"  {status}  {name}")
 
     print()
@@ -92,7 +92,7 @@ def main():
 
     if passed == total:
         print("╔" + "="*68 + "╗")
-        print("║" + " "*15 + "🎉 ALL TESTS PASSED SUCCESSFULLY! 🎉" + " "*16 + "║")
+        print("║" + " "*19 + "ALL TESTS PASSED SUCCESSFULLY!" + " "*19 + "║")
         print("╚" + "="*68 + "╝")
         print()
         print("Next steps:")
@@ -104,7 +104,7 @@ def main():
         return 0
     else:
         print("╔" + "="*68 + "╗")
-        print("║" + " "*20 + "⚠️  SOME TESTS FAILED ⚠️" + " "*23 + "║")
+        print("║" + " "*25 + "SOME TESTS FAILED" + " "*26 + "║")
         print("╚" + "="*68 + "╝")
         print()
         print("Please review the failed tests above.")

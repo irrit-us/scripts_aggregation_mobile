@@ -94,13 +94,13 @@ class JavaScriptTester:
         has_declarations = bool(re.search(r'\b(var|let|const)\s+\w+', content))
 
         if errors:
-            print(f"  ❌ Syntax: {', '.join(errors)}")
+            print(f"  [FAIL] Syntax: {', '.join(errors)}")
             return False
         elif not has_declarations:
-            print(f"  ⚠️  Syntax: No variable declarations found")
+            print(f"  [WARN]  Syntax: No variable declarations found")
             return True
         else:
-            print(f"  ✅ Syntax: Valid")
+            print(f"  [OK] Syntax: Valid")
             return True
 
     def test_api_usage(self, content: str, filename: str) -> bool:
@@ -136,10 +136,10 @@ class JavaScriptTester:
             apis_used.append('console.log')
 
         if apis_used:
-            print(f"  ✅ API Usage: {', '.join(apis_used[:3])}{'...' if len(apis_used) > 3 else ''}")
+            print(f"  [OK] API Usage: {', '.join(apis_used[:3])}{'...' if len(apis_used) > 3 else ''}")
             return True
         else:
-            print(f"  ❌ API Usage: No ScriptHost APIs found")
+            print(f"  [FAIL] API Usage: No ScriptHost APIs found")
             return False
 
     def test_event_handlers(self, content: str, filename: str) -> bool:
@@ -162,10 +162,10 @@ class JavaScriptTester:
             handlers.append('callbacks')
 
         if handlers:
-            print(f"  ✅ Event Handlers: {', '.join(handlers)}")
+            print(f"  [OK] Event Handlers: {', '.join(handlers)}")
             return True
         else:
-            print(f"  ⚠️  Event Handlers: None found (may not be needed)")
+            print(f"  [WARN]  Event Handlers: None found (may not be needed)")
             return True  # Not all scripts need event handlers
 
     def test_error_handling(self, content: str, filename: str) -> bool:
@@ -185,10 +185,10 @@ class JavaScriptTester:
             has_error_handling = True
 
         if has_error_handling:
-            print(f"  ✅ Error Handling: Present")
+            print(f"  [OK] Error Handling: Present")
             return True
         else:
-            print(f"  ⚠️  Error Handling: Not found (may not be needed)")
+            print(f"  [WARN]  Error Handling: Not found (may not be needed)")
             return True  # Not all scripts need error handling
 
     def test_code_quality(self, content: str, filename: str) -> bool:
@@ -211,10 +211,10 @@ class JavaScriptTester:
             issues.append(f"{len(long_lines)} lines > 120 chars")
 
         if not issues:
-            print(f"  ✅ Code Quality: Good")
+            print(f"  [OK] Code Quality: Good")
             return True
         else:
-            print(f"  ⚠️  Code Quality: {', '.join(issues)}")
+            print(f"  [WARN]  Code Quality: {', '.join(issues)}")
             return True  # Warnings, not failures
 
     def print_summary(self):
@@ -233,19 +233,19 @@ class JavaScriptTester:
         print()
 
         if passed_files == total_files:
-            print("✅ ALL TESTS PASSED")
+            print("[OK] ALL TESTS PASSED")
         else:
-            print("⚠️  SOME TESTS FAILED")
+            print("[WARN]  SOME TESTS FAILED")
             print()
             print("Failed files:")
             for result in self.test_results:
                 if not result['success']:
-                    print(f"  ❌ {result['file']}: {result['passed']}/{result['total']} tests passed")
+                    print(f"  [FAIL] {result['file']}: {result['passed']}/{result['total']} tests passed")
 
         print()
         print("Detailed Results:")
         for result in self.test_results:
-            status = "✅" if result['success'] else "❌"
+            status = "[OK]" if result['success'] else "[FAIL]"
             print(f"  {status} {result['file']}: {result['passed']}/{result['total']}")
 
         return passed_files == total_files

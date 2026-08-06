@@ -43,13 +43,36 @@ class MainActivity : AppCompatActivity() {
             setPadding(16, 16, 16, 16)
         }
 
-        // Title
-        val titleText = TextView(this).apply {
+        // Title row with Settings entry
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 0, 24)
+            }
+        }
+
+        titleRow.addView(TextView(this).apply {
             text = "ScriptHost"
             textSize = 24f
-            setPadding(0, 0, 0, 24)
-        }
-        rootLayout.addView(titleText)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        })
+
+        titleRow.addView(Button(this).apply {
+            text = "Settings"
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+            }
+        })
+
+        rootLayout.addView(titleRow)
 
         // Search bar
         searchEditText = EditText(this).apply {

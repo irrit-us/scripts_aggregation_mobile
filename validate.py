@@ -35,7 +35,7 @@ class CodeValidator:
 
     def validate_kotlin_files(self):
         """Validate Kotlin source files"""
-        print("📝 Validating Kotlin Source Files...")
+        print(" Validating Kotlin Source Files...")
 
         kotlin_dir = self.project_root / "android/app/src/main/java/com/scripthost"
         if not kotlin_dir.exists():
@@ -47,7 +47,7 @@ class CodeValidator:
         for kt_file in kotlin_files:
             self.validate_kotlin_file(kt_file)
 
-        print(f"  ✓ Validated {len(kotlin_files)} Kotlin files")
+        print(f"  [OK] Validated {len(kotlin_files)} Kotlin files")
         print()
 
     def validate_kotlin_file(self, file_path: Path):
@@ -76,7 +76,7 @@ class CodeValidator:
 
     def validate_javascript_examples(self):
         """Validate JavaScript example scripts"""
-        print("📝 Validating JavaScript Examples...")
+        print(" Validating JavaScript Examples...")
 
         examples_dir = self.project_root / "scripts/examples"
         if not examples_dir.exists():
@@ -88,7 +88,7 @@ class CodeValidator:
         for js_file in js_files:
             self.validate_javascript_file(js_file)
 
-        print(f"  ✓ Validated {len(js_files)} JavaScript examples")
+        print(f"  [OK] Validated {len(js_files)} JavaScript examples")
         print()
 
     def validate_javascript_file(self, file_path: Path):
@@ -115,7 +115,7 @@ class CodeValidator:
 
     def validate_documentation(self):
         """Validate documentation files"""
-        print("📝 Validating Documentation...")
+        print(" Validating Documentation...")
 
         required_docs = [
             "README.md",
@@ -138,12 +138,12 @@ class CodeValidator:
             else:
                 self.add_error(f"{doc}: Documentation file missing")
 
-        print(f"  ✓ Validated {len(required_docs)} documentation files")
+        print(f"  [OK] Validated {len(required_docs)} documentation files")
         print()
 
     def validate_configuration(self):
         """Validate configuration files"""
-        print("📝 Validating Configuration Files...")
+        print(" Validating Configuration Files...")
 
         config_files = [
             ("android/build.gradle.kts", "Root build.gradle"),
@@ -160,12 +160,12 @@ class CodeValidator:
             else:
                 self.add_error(f"{name}: Configuration file missing")
 
-        print(f"  ✓ Validated {len(config_files)} configuration files")
+        print(f"  [OK] Validated {len(config_files)} configuration files")
         print()
 
     def validate_architecture(self):
         """Validate architectural components"""
-        print("📝 Validating Architecture...")
+        print(" Validating Architecture...")
 
         components = {
             "Engine": ["JavaScriptEngine.kt", "ScriptManager.kt"],
@@ -184,7 +184,7 @@ class CodeValidator:
 
             if found == len(files):
                 self.passed += 1
-                print(f"  ✓ {component}: All files present ({found}/{len(files)})")
+                print(f"  [OK] {component}: All files present ({found}/{len(files)})")
             else:
                 self.add_warning(f"{component}: Missing files ({found}/{len(files)})")
 
@@ -206,15 +206,15 @@ class CodeValidator:
         print("=" * 70)
         print()
 
-        print(f"✅ Passed: {self.passed}")
-        print(f"⚠️  Warnings: {len(self.warnings)}")
-        print(f"❌ Errors: {len(self.errors)}")
+        print(f"[OK] Passed: {self.passed}")
+        print(f"[WARN]  Warnings: {len(self.warnings)}")
+        print(f"[FAIL] Errors: {len(self.errors)}")
         print()
 
         if self.warnings:
             print("Warnings:")
             for warning in self.warnings[:10]:  # Show first 10
-                print(f"  ⚠️  {warning}")
+                print(f"  [WARN]  {warning}")
             if len(self.warnings) > 10:
                 print(f"  ... and {len(self.warnings) - 10} more")
             print()
@@ -222,17 +222,17 @@ class CodeValidator:
         if self.errors:
             print("Errors:")
             for error in self.errors:
-                print(f"  ❌ {error}")
+                print(f"  [FAIL] {error}")
             print()
 
         if self.errors:
-            print("❌ VALIDATION FAILED")
+            print("[FAIL] VALIDATION FAILED")
             return False
         elif self.warnings:
-            print("⚠️  VALIDATION PASSED WITH WARNINGS")
+            print("[WARN]  VALIDATION PASSED WITH WARNINGS")
             return True
         else:
-            print("✅ VALIDATION PASSED")
+            print("[OK] VALIDATION PASSED")
             return True
 
 def main():

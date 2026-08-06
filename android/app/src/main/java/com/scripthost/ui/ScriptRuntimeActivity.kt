@@ -5,6 +5,7 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.scripthost.ScriptHostApplication
+import com.scripthost.bridge.ConfigBridge
 import com.scripthost.bridge.SystemBridge
 import com.scripthost.bridge.UIBridge
 import com.scripthost.engine.ExecutionResult
@@ -140,9 +141,11 @@ class ScriptRuntimeActivity : AppCompatActivity() {
                 // Register bridges
                 val uiBridge = UIBridge(this@ScriptRuntimeActivity, scriptContainer)
                 val systemBridge = SystemBridge(this@ScriptRuntimeActivity, permissionManager)
+                val configBridge = ConfigBridge(app.configStore, permissionManager)
 
                 scriptEngine?.registerBridge(uiBridge)
                 scriptEngine?.registerBridge(systemBridge)
+                scriptEngine?.registerBridge(configBridge)
 
                 // Execute script
                 appendConsole("Starting script: ${context.script.name}")

@@ -27,9 +27,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * JavaScript engine implementation using J2V8.
  * Provides sandboxed script execution with resource monitoring.
  *
- * Note: J2V8 runtimes are not thread-safe; this engine keeps all V8 access on
- * the thread that executes a script. UI bridge callbacks should be marshaled
- * through the bridge's own main-thread handler.
+ * Note: J2V8 runtimes are not thread-safe and enforce that every V8 call
+ * happens on the thread that created the runtime. This engine creates the
+ * runtime on the main thread and executes scripts there; bridge callbacks are
+ * marshaled to the main thread as well (see UIBridge and SystemBridge).
  */
 class JavaScriptEngine(private val context: Context) : ScriptEngine {
 
@@ -90,7 +91,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     /**
      * Execute a script with sandboxing and monitoring.
      */
-    override suspend fun execute(scriptContext: ScriptContext): ExecutionResult = withContext(Dispatchers.Default) {
+    override suspend fun execute(scriptContext: ScriptContext): ExecutionResult = withContext(Dispatchers.Main) {
         val script = scriptContext.script
 
         try {

@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Timer IDs always returned `0` and `clearTimeout`/`clearInterval` were missing
 - UI bridge touched views from background threads; view creation and mutation
   now happen on the main thread
+- V8 callback/object access is marshaled to the main thread; J2V8 enforces
+  thread affinity and previously threw on foreign-thread access
+- Sensor callbacks fired on background threads; events are now posted to the
+  main thread, and `unregister()` stops sensor listeners
+- Nullable runtime references could crash bridges; guarded with `?: return`
+  and `?: null` fallbacks
+- `Network.get`/`Network.post` treated only HTTP 200 as success; non-2xx
+  responses are now surfaced as errors
+- Stale claims about a 50MB memory limit removed (heap statistics are not
+  exposed by J2V8 6.2.1; only the 30-second execution timeout is enforced)
 
 ### Changed
 - `ScriptManager` now takes an injectable storage directory (plus a `Context`
@@ -33,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unit tests moved into `android/app/src/test/` where Gradle actually runs
   them, replacing placeholder assertions with real behavioral tests
 - `run_all_tests.py` no longer hard-codes paths from another machine
+- `JavaScriptEngine.execute()` now runs on the main thread to satisfy J2V8
+  runtime thread affinity
+- All Development Roadmap phases (1-7) in README.md completed and ticked
+- Documentation synced with the new features (README, docs/API.md,
+  docs/EXAMPLES.md, docs/SECURITY.md, QUICKSTART.md, STATUS.txt,
+  PROJECT_SUMMARY.md)
 
 ### Added
 - Initial project structure
@@ -47,13 +63,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security documentation
 - Testing framework with unit and integration tests
 - Android app with MainActivity, ScriptEditorActivity, and ScriptRuntimeActivity
+- Configuration interface: Settings screen to add, edit, and delete API keys
+  and settings
+- `ConfigStore` (JSON-backed key/value store in app-private storage)
+- `Config` bridge for scripts: `Config.get(key)` and `Config.keys()`, gated
+  behind the `CONFIG` permission
+- Header overloads for `Network.get(url, headers, callback)` and
+  `Network.post(url, headers, body, callback)` for authenticated API calls
+- Example scripts: `agent_conversation.js` (wrapped agent conversation) and
+  `server_monitor.js` (server health monitoring)
+- `ConfigStoreTest` unit tests (8 tests)
 
 ### Security
 - Sandbox isolation for script execution
-- Resource limits (30s timeout, 50MB memory)
+- Resource limits (30s execution timeout)
 - Permission system with dangerous permission flags
 - RSA-2048 signature verification
 - SHA-256 hash verification for local scripts
+- `CONFIG` permission (auto-granted, read-only access to configured API keys
+  and settings)
+- `docs/SECURITY.md` documents the Config storage model, API-key handling,
+  and updated permission/API whitelist
 
 ## [1.0.0] - TBD
 

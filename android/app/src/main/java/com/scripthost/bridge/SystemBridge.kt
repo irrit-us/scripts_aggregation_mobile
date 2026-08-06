@@ -6,9 +6,12 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import com.eclipsesource.v8.JavaCallback
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Function
@@ -16,14 +19,23 @@ import com.eclipsesource.v8.V8Object
 import com.scripthost.engine.ScriptBridge
 import com.scripthost.models.Permission
 import com.scripthost.security.PermissionManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
  * System Bridge - Exposes system functionality to scripts
- * Includes network, storage, sensors, and device APIs
+ * Includes network, storage, sensors, and device APIs.
+ *
+ * J2V8 runtimes are not thread-safe. All V8 access (callback invocation,
+ * V8Object/V8Array creation) happens on the main thread; network work runs on
+ * the IO dispatcher and sensor events are marshaled through the main handler.
  */
 class SystemBridge(
     private val context: Context,
@@ -32,6 +44,7 @@ class SystemBridge(
 
     private var runtime: V8? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
     override fun register(runtime: V8) {
@@ -40,10 +53,16 @@ class SystemBridge(
         // Network API
         val networkObject = V8Object(runtime)
         runtime.add("Network", networkObject)
-        networkObject.registerJavaMethod(this, "httpGet", "get",
-            arrayOf(String::class.java, V8Function::class.java))
-        networkObject.registerJavaMethod(this, "httpPost", "post",
-            arrayOf(String::class.java, String::class.java, V8Function::class.java))
+        // Supports get(url, callback) and get(url, headers, callback)
+        networkObject.registerJavaMethod(JavaCallback { _, parameters ->
+            dispatchHttpGet(parameters)
+            null
+        }, "get")
+        // Supports post(url, body, callback) and post(url, headers, body, callback)
+        networkObject.registerJavaMethod(JavaCallback { _, parameters ->
+            dispatchHttpPost(parameters)
+            null
+        }, "post")
         networkObject.release()
 
         // Storage API
@@ -80,16 +99,74 @@ class SystemBridge(
 
     override fun unregister() {
         scope.cancel()
+        stopSensor()
         runtime = null
     }
 
     // Network API
 
     /**
-     * HTTP GET request
+     * Dispatch a `Network.get` call based on the number of JS arguments:
+     * `get(url, callback)` or `get(url, headers, callback)`.
      */
-    @Suppress("unused")
-    fun httpGet(url: String, callback: V8Function) {
+    private fun dispatchHttpGet(parameters: V8Array) {
+        try {
+            if (parameters.length() < 2) {
+                invokeCallback(parameters, "Network.get requires a URL and a callback")
+                return
+            }
+            val callback = extractCallback(parameters)
+            if (callback == null) {
+                invokeCallback(parameters, "Network.get requires a callback function")
+                return
+            }
+            val headers = if (parameters.length() >= 3) {
+                readHeaders(parameters.getObject(1))
+            } else {
+                null
+            }
+            httpGet(parameters.getString(0), headers, callback)
+        } catch (e: Exception) {
+            invokeCallback(parameters, "Invalid Network.get arguments: ${e.message}")
+        }
+    }
+
+    /**
+     * Dispatch a `Network.post` call based on the number of JS arguments:
+     * `post(url, body, callback)` or `post(url, headers, body, callback)`.
+     */
+    private fun dispatchHttpPost(parameters: V8Array) {
+        try {
+            if (parameters.length() < 3) {
+                invokeCallback(parameters, "Network.post requires a URL, a body, and a callback")
+                return
+            }
+            val callback = extractCallback(parameters)
+            if (callback == null) {
+                invokeCallback(parameters, "Network.post requires a callback function")
+                return
+            }
+            val hasHeaders = parameters.length() >= 4
+            val headers = if (hasHeaders) {
+                readHeaders(parameters.getObject(1))
+            } else {
+                null
+            }
+            val body = if (hasHeaders) {
+                parameters.getString(2)
+            } else {
+                parameters.getString(1)
+            }
+            httpPost(parameters.getString(0), headers, body, callback)
+        } catch (e: Exception) {
+            invokeCallback(parameters, "Invalid Network.post arguments: ${e.message}")
+        }
+    }
+
+    /**
+     * HTTP GET request with optional headers (e.g. Authorization).
+     */
+    fun httpGet(url: String, headers: Map<String, String>?, callback: V8Function) {
         if (!permissionManager.hasPermission(Permission.INTERNET)) {
             invokeCallback(callback, null, "Permission denied: INTERNET")
             return
@@ -101,9 +178,10 @@ class SystemBridge(
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
+                headers?.forEach { (name, value) -> connection.setRequestProperty(name, value) }
 
                 val responseCode = connection.responseCode
-                val response = if (responseCode == 200) {
+                val response = if (responseCode in 200..299) {
                     connection.inputStream.bufferedReader().use { it.readText() }
                 } else {
                     null
@@ -124,10 +202,9 @@ class SystemBridge(
     }
 
     /**
-     * HTTP POST request
+     * HTTP POST request with optional headers (e.g. Authorization).
      */
-    @Suppress("unused")
-    fun httpPost(url: String, body: String, callback: V8Function) {
+    fun httpPost(url: String, headers: Map<String, String>?, body: String, callback: V8Function) {
         if (!permissionManager.hasPermission(Permission.INTERNET)) {
             invokeCallback(callback, null, "Permission denied: INTERNET")
             return
@@ -139,13 +216,14 @@ class SystemBridge(
                 connection.requestMethod = "POST"
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
+                headers?.forEach { (name, value) -> connection.setRequestProperty(name, value) }
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
 
                 connection.outputStream.use { it.write(body.toByteArray()) }
 
                 val responseCode = connection.responseCode
-                val response = if (responseCode == 200) {
+                val response = if (responseCode in 200..299) {
                     connection.inputStream.bufferedReader().use { it.readText() }
                 } else {
                     null
@@ -227,6 +305,7 @@ class SystemBridge(
         if (!permissionManager.hasPermission(Permission.READ_STORAGE)) {
             return null
         }
+        val runtime = this.runtime ?: return null
 
         return try {
             val dir = File(context.filesDir, directory)
@@ -254,31 +333,7 @@ class SystemBridge(
         if (!permissionManager.hasPermission(Permission.ACCELEROMETER)) {
             return
         }
-
-        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ?: return
-
-        sensorListener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent) {
-                val data = V8Object(runtime)
-                data.add("x", event.values[0].toDouble())
-                data.add("y", event.values[1].toDouble())
-                data.add("z", event.values[2].toDouble())
-
-                val params = V8Array(runtime).push(data)
-                callback.call(runtime, params)
-
-                data.release()
-                params.release()
-            }
-
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-        }
-
-        sensorManager.registerListener(
-            sensorListener,
-            sensor,
-            SensorManager.SENSOR_DELAY_NORMAL
-        )
+        startSensor(Sensor.TYPE_ACCELEROMETER, callback)
     }
 
     /**
@@ -289,21 +344,36 @@ class SystemBridge(
         if (!permissionManager.hasPermission(Permission.GYROSCOPE)) {
             return
         }
+        startSensor(Sensor.TYPE_GYROSCOPE, callback)
+    }
 
-        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) ?: return
+    private fun startSensor(sensorType: Int, callback: V8Function) {
+        val sensor = sensorManager.getDefaultSensor(sensorType) ?: return
 
         sensorListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
-                val data = V8Object(runtime)
-                data.add("x", event.values[0].toDouble())
-                data.add("y", event.values[1].toDouble())
-                data.add("z", event.values[2].toDouble())
+                // Copy the values first: SensorEvent buffers are reused by the system.
+                val x = event.values[0].toDouble()
+                val y = event.values[1].toDouble()
+                val z = event.values[2].toDouble()
 
-                val params = V8Array(runtime).push(data)
-                callback.call(runtime, params)
+                // Sensor callbacks arrive on the sensor thread; V8 must only be
+                // touched from the main thread.
+                mainHandler.post {
+                    val runtime = this@SystemBridge.runtime ?: return@post
+                    if (callback.isReleased) return@post
 
-                data.release()
-                params.release()
+                    val data = V8Object(runtime)
+                    data.add("x", x)
+                    data.add("y", y)
+                    data.add("z", z)
+
+                    val params = V8Array(runtime).push(data)
+                    callback.call(runtime, params)
+
+                    data.release()
+                    params.release()
+                }
             }
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -359,6 +429,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun getDeviceInfo(): V8Object {
+        val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
         val info = V8Object(runtime)
         info.add("manufacturer", Build.MANUFACTURER)
         info.add("model", Build.MODEL)
@@ -369,7 +440,36 @@ class SystemBridge(
 
     // Helper methods
 
+    /**
+     * Extract the trailing V8Function argument, or null when missing.
+     */
+    private fun extractCallback(parameters: V8Array): V8Function? {
+        val last = parameters.length() - 1
+        if (last < 0) return null
+        return parameters.getObject(last) as? V8Function
+    }
+
+    /**
+     * Convert a JS header object into a [Map] of header name to value.
+     */
+    private fun readHeaders(headersObject: V8Object): Map<String, String> {
+        val headers = linkedMapOf<String, String>()
+        for (key in headersObject.getKeys()) {
+            headers[key] = headersObject.getString(key)
+        }
+        return headers
+    }
+
+    /**
+     * Report an argument error through the callback that was passed in.
+     */
+    private fun invokeCallback(parameters: V8Array, error: String) {
+        val callback = extractCallback(parameters) ?: return
+        invokeCallback(callback, null, error)
+    }
+
     private fun invokeCallback(callback: V8Function, data: String?, error: String?) {
+        val runtime = this.runtime ?: return
         val params = V8Array(runtime)
 
         if (error != null) {

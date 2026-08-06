@@ -6,10 +6,11 @@ Complete API documentation for writing scripts in ScriptHost.
 
 1. [UI Components](#ui-components)
 2. [Network API](#network-api)
-3. [Storage API](#storage-api)
-4. [Sensor API](#sensor-api)
-5. [Device API](#device-api)
-6. [Global Functions](#global-functions)
+3. [Config API](#config-api)
+4. [Storage API](#storage-api)
+5. [Sensor API](#sensor-api)
+6. [Device API](#device-api)
+7. [Global Functions](#global-functions)
 
 ---
 
@@ -244,6 +245,31 @@ Network.get("https://api.example.com/data", function(data, error) {
 
 ---
 
+### Network.get(url, headers, callback)
+
+Perform HTTP GET request with custom headers (e.g. `Authorization`).
+
+**Parameters:**
+- `url` (string) - URL to fetch
+- `headers` (object) - Object of header name to value, e.g. `{ "Authorization": "Bearer sk-..." }`
+- `callback` (function) - Callback function (data, error)
+
+**Permissions Required:** `INTERNET`
+
+**Example:**
+```javascript
+let headers = { "Authorization": "Bearer " + Config.get("OPENAI_API_KEY") };
+Network.get("https://api.example.com/me", headers, function(data, error) {
+    if (error) {
+        console.error("Error: " + error);
+    } else {
+        console.log("Response: " + data);
+    }
+});
+```
+
+---
+
 ### Network.post(url, body, callback)
 
 Perform HTTP POST request.
@@ -266,6 +292,84 @@ Network.post("https://api.example.com/users", payload, function(data, error) {
     }
 });
 ```
+
+---
+
+### Network.post(url, headers, body, callback)
+
+Perform HTTP POST request with custom headers (e.g. `Authorization`).
+
+**Parameters:**
+- `url` (string) - URL to post to
+- `headers` (object) - Object of header name to value, e.g. `{ "Authorization": "Bearer sk-..." }`
+- `body` (string) - Request body (JSON string)
+- `callback` (function) - Callback function (data, error)
+
+**Permissions Required:** `INTERNET`
+
+**Example:**
+```javascript
+let headers = {
+    "Authorization": "Bearer " + Config.get("OPENAI_API_KEY"),
+    "Content-Type": "application/json"
+};
+let payload = JSON.stringify({ query: "hello" });
+Network.post("https://api.example.com/chat", headers, payload, function(data, error) {
+    if (error) {
+        console.error("Error: " + error);
+    } else {
+        console.log("Response: " + data);
+    }
+});
+```
+
+---
+
+## Config API
+
+Reads API keys and other settings configured by the user in the Settings screen.
+
+### Config.get(key)
+
+Get a configured value by key.
+
+**Parameters:**
+- `key` (string) - Configuration key, e.g. `"OPENAI_API_KEY"`
+
+**Returns:** String value, or `null`/`undefined` when not configured
+
+**Permissions Required:** `CONFIG`
+
+**Example:**
+```javascript
+let apiKey = Config.get("OPENAI_API_KEY");
+if (apiKey) {
+    console.log("API key is configured");
+} else {
+    console.log("API key missing - configure it in Settings");
+}
+```
+
+---
+
+### Config.keys()
+
+List all configured keys. Values are not exposed.
+
+**Returns:** Array of key strings
+
+**Permissions Required:** `CONFIG`
+
+**Example:**
+```javascript
+let keys = Config.keys();
+for (let i = 0; i < keys.length; i++) {
+    console.log("Configured: " + keys[i]);
+}
+```
+
+> **Security note**: `CONFIG` is a non-dangerous permission that is auto-granted
+> to any installed script declaring it. Only install scripts you trust.
 
 ---
 

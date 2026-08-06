@@ -41,7 +41,6 @@ Scripts run in isolated V8 contexts with:
 Scripts are constrained by:
 
 - **Execution Time**: Maximum 30 seconds per execution
-- **CPU Monitoring**: Automatic termination of runaway scripts
 - **Network Timeout**: 10 seconds for HTTP requests
 
 ### API Whitelist
@@ -49,7 +48,8 @@ Scripts are constrained by:
 Scripts can only access explicitly exposed APIs:
 
 - UI components (Button, Label, etc.)
-- Network (HTTP GET/POST only)
+- Network (HTTP GET/POST, with optional custom headers)
+- Config (configured API keys and settings, with permission)
 - Storage (app's private directory only)
 - Sensors (with permission)
 - Device info (non-sensitive only)
@@ -67,6 +67,7 @@ Scripts can only access explicitly exposed APIs:
 - GYROSCOPE
 - VIBRATE
 - NOTIFICATIONS
+- CONFIG (read configured API keys and settings)
 
 **Dangerous Permissions** (require user consent):
 - LOCATION_FINE
@@ -94,6 +95,34 @@ if (!permissionManager.hasPermission(Permission.INTERNET)) {
 ```
 
 All sensitive APIs perform permission checks before execution.
+
+## Configuration Storage & API Keys
+
+Scripts read configured API keys and settings through the `Config` bridge
+(`Config.get(key)`, `Config.keys()`), gated behind the `CONFIG` permission.
+
+### Storage Model
+
+- **Location**: `app_config.json` in the app's private files directory
+- **Format**: JSON object mapping string keys to string values
+- **Access**: Read-only from scripts; managed from the Settings screen
+- **Scope**: Values are per-app, shared by all scripts
+
+### Security Considerations
+
+- Values are stored in plaintext inside the app's private directory. The
+  Android app sandbox restricts access to the app itself on non-rooted
+  devices, but the file is not encrypted: extracted backups, debug builds,
+  or rooted devices can read it. Hardware-backed key storage is listed
+  under Future Improvements.
+- `CONFIG` is auto-granted (non-dangerous), so the effective control is
+  trust at install time: only install scripts whose permission requests you
+  have reviewed, and treat a script that requests `CONFIG` as able to read
+  all configured keys.
+- Values never leave the device unless a script explicitly sends them, for
+  example as an `Authorization` header or request body.
+- The Settings screen masks values when listing them and never logs them;
+  scripts that fail the `CONFIG` permission check get a `SecurityException`.
 
 ## Script Verification
 
@@ -148,7 +177,7 @@ For local scripts without signatures:
 | Malicious code execution | Sandbox isolation, API whitelist |
 | Privilege escalation | Permission system, runtime checks |
 | Data exfiltration | Network permission, storage isolation |
-| Resource exhaustion | Execution timeout, resource monitoring |
+| Resource exhaustion | Execution timeout |
 | Code tampering | Signature verification, hash checks |
 | Permission abuse | User consent, dangerous permission flags |
 | Script injection | Input validation, CSP-like restrictions |
@@ -162,8 +191,9 @@ For local scripts without signatures:
 
 **Scenario 2: Infinite Loop**
 - **Attack**: Script runs infinite loop to freeze device
-- **Defense**: 30-second execution timeout, CPU monitoring
-- **Result**: Script automatically terminated
+- **Defense**: 30-second execution timeout; synchronous execution is
+  interruptible between timer callbacks and network responses
+- **Result**: Script terminated when the execution timeout is reached
 
 **Scenario 3: Memory Bomb**
 - **Attack**: Script allocates excessive memory

@@ -60,6 +60,7 @@ enum class Permission(val description: String, val dangerous: Boolean) {
     // System
     VIBRATE("Vibrate device", false),
     NOTIFICATIONS("Show notifications", false),
+    CONFIG("Read configured API keys and settings", false),
 
     // Contacts
     READ_CONTACTS("Read contacts", true),

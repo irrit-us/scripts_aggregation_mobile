@@ -47,13 +47,13 @@ class IntegrationTester:
         try:
             result = test_func()
             if result:
-                print(f"  ✅ PASSED")
+                print(f"  PASSED")
                 self.tests_passed += 1
             else:
-                print(f"  ❌ FAILED")
+                print(f"  FAILED")
                 self.tests_failed += 1
         except Exception as e:
-            print(f"  ❌ ERROR: {e}")
+            print(f"  [FAIL] ERROR: {e}")
             self.tests_failed += 1
 
         print()
@@ -63,7 +63,7 @@ class IntegrationTester:
         # Check ScriptManager exists
         script_manager = self.project_root / "android/app/src/main/java/com/scripthost/engine/ScriptManager.kt"
         if not script_manager.exists():
-            print("  ❌ ScriptManager.kt not found")
+            print("  [FAIL] ScriptManager.kt not found")
             return False
 
         content = script_manager.read_text()
@@ -83,10 +83,10 @@ class IntegrationTester:
                 missing.append(method)
 
         if missing:
-            print(f"  ❌ Missing methods: {', '.join(missing)}")
+            print(f"  [FAIL] Missing methods: {', '.join(missing)}")
             return False
 
-        print(f"  ✓ All installation methods present")
+        print(f"  [OK] All installation methods present")
         return True
 
     def test_permission_system(self) -> bool:
@@ -94,7 +94,7 @@ class IntegrationTester:
         # Check PermissionManager
         perm_manager = self.project_root / "android/app/src/main/java/com/scripthost/security/PermissionManager.kt"
         if not perm_manager.exists():
-            print("  ❌ PermissionManager.kt not found")
+            print("  [FAIL] PermissionManager.kt not found")
             return False
 
         content = perm_manager.read_text()
@@ -108,18 +108,18 @@ class IntegrationTester:
 
         for method, desc in checks:
             if f'fun {method}' not in content:
-                print(f"  ❌ Missing: {desc}")
+                print(f"  [FAIL] Missing: {desc}")
                 return False
-            print(f"  ✓ {desc}")
+            print(f"  [OK] {desc}")
 
         # Check Permission enum
         script_kt = self.project_root / "android/app/src/main/java/com/scripthost/models/Script.kt"
         if script_kt.exists():
             script_content = script_kt.read_text()
             if 'enum class Permission' in script_content:
-                print(f"  ✓ Permission enum defined")
+                print(f"  [OK] Permission enum defined")
             else:
-                print(f"  ❌ Permission enum not found")
+                print(f"  [FAIL] Permission enum not found")
                 return False
 
         return True
@@ -128,7 +128,7 @@ class IntegrationTester:
         """Test UI bridge integration"""
         ui_bridge = self.project_root / "android/app/src/main/java/com/scripthost/bridge/UIBridge.kt"
         if not ui_bridge.exists():
-            print("  ❌ UIBridge.kt not found")
+            print("  [FAIL] UIBridge.kt not found")
             return False
 
         content = ui_bridge.read_text()
@@ -141,13 +141,13 @@ class IntegrationTester:
             if f'create{component}' in content:
                 found += 1
 
-        print(f"  ✓ UI Components: {found}/{len(components)} implemented")
+        print(f"  [OK] UI Components: {found}/{len(components)} implemented")
 
         # Check for UI namespace methods
         if 'fun addView' in content:
-            print(f"  ✓ UI.addView() implemented")
+            print(f"  [OK] UI.addView() implemented")
         else:
-            print(f"  ❌ UI.addView() not found")
+            print(f"  [FAIL] UI.addView() not found")
             return False
 
         return found >= 4  # At least 4 components
@@ -156,7 +156,7 @@ class IntegrationTester:
         """Test system bridge integration"""
         sys_bridge = self.project_root / "android/app/src/main/java/com/scripthost/bridge/SystemBridge.kt"
         if not sys_bridge.exists():
-            print("  ❌ SystemBridge.kt not found")
+            print("  [FAIL] SystemBridge.kt not found")
             return False
 
         content = sys_bridge.read_text()
@@ -174,7 +174,7 @@ class IntegrationTester:
         found = 0
         for method, desc in apis:
             if f'fun {method}' in content:
-                print(f"  ✓ {desc}")
+                print(f"  [OK] {desc}")
                 found += 1
 
         return found >= 4  # At least 4 APIs
@@ -183,7 +183,7 @@ class IntegrationTester:
         """Test security implementation"""
         sig_verifier = self.project_root / "android/app/src/main/java/com/scripthost/security/SignatureVerifier.kt"
         if not sig_verifier.exists():
-            print("  ❌ SignatureVerifier.kt not found")
+            print("  [FAIL] SignatureVerifier.kt not found")
             return False
 
         content = sig_verifier.read_text()
@@ -199,9 +199,9 @@ class IntegrationTester:
 
         for pattern, desc in security_features:
             if pattern in content:
-                print(f"  ✓ {desc}")
+                print(f"  [OK] {desc}")
             else:
-                print(f"  ❌ Missing: {desc}")
+                print(f"  [FAIL] Missing: {desc}")
                 return False
 
         return True
@@ -210,7 +210,7 @@ class IntegrationTester:
         """Test script execution flow"""
         js_engine = self.project_root / "android/app/src/main/java/com/scripthost/engine/JavaScriptEngine.kt"
         if not js_engine.exists():
-            print("  ❌ JavaScriptEngine.kt not found")
+            print("  [FAIL] JavaScriptEngine.kt not found")
             return False
 
         content = js_engine.read_text()
@@ -226,9 +226,9 @@ class IntegrationTester:
 
         for pattern, desc in execution_features:
             if pattern in content:
-                print(f"  ✓ {desc}")
+                print(f"  [OK] {desc}")
             else:
-                print(f"  ❌ Missing: {desc}")
+                print(f"  [FAIL] Missing: {desc}")
                 return False
 
         return True
@@ -243,22 +243,22 @@ class IntegrationTester:
         content = js_engine.read_text()
 
         if 'sealed class ExecutionResult' in content or 'sealed interface ExecutionResult' in content:
-            print(f"  ✓ ExecutionResult type defined")
+            print(f"  [OK] ExecutionResult type defined")
         else:
-            print(f"  ❌ ExecutionResult not found")
+            print(f"  [FAIL] ExecutionResult not found")
             return False
 
         if 'Success' in content and 'Error' in content:
-            print(f"  ✓ Success and Error cases defined")
+            print(f"  [OK] Success and Error cases defined")
         else:
-            print(f"  ❌ Result cases not found")
+            print(f"  [FAIL] Result cases not found")
             return False
 
         # Check for try-catch blocks
         if 'try {' in content and 'catch' in content:
-            print(f"  ✓ Exception handling present")
+            print(f"  [OK] Exception handling present")
         else:
-            print(f"  ⚠️  Limited exception handling")
+            print(f"  [WARN]  Limited exception handling")
 
         return True
 
@@ -280,10 +280,10 @@ class IntegrationTester:
         found = 0
         for pattern, desc in resource_features:
             if pattern in content:
-                print(f"  ✓ {desc}")
+                print(f"  [OK] {desc}")
                 found += 1
             else:
-                print(f"  ⚠️  {desc} not explicitly found")
+                print(f"  [WARN]  {desc} not explicitly found")
 
         return found >= 2  # At least 2 resource management features
 
@@ -301,7 +301,7 @@ class IntegrationTester:
         print()
 
         if self.tests_failed == 0:
-            print("✅ ALL INTEGRATION TESTS PASSED")
+            print("[OK] ALL INTEGRATION TESTS PASSED")
             print()
             print("The ScriptHost implementation is complete and all components")
             print("are properly integrated. The system is ready for:")
@@ -310,7 +310,7 @@ class IntegrationTester:
             print("  • Security audit")
             print("  • Performance profiling")
         else:
-            print("⚠️  SOME INTEGRATION TESTS FAILED")
+            print("[WARN]  SOME INTEGRATION TESTS FAILED")
             print()
             print("Please review the failed tests above.")
 

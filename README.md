@@ -15,12 +15,13 @@ A powerful mobile script host environment that enables users to write and instal
 │  Bridge Layer                                            │
 │  ├─ UI Bridge (Component Creation & Events)             │
 │  ├─ System Bridge (Network, Storage, Sensors)           │
+│  ├─ Config Bridge (API Keys & Settings)                 │
 │  └─ Permission Manager                                   │
 ├─────────────────────────────────────────────────────────┤
 │  Script Runtime Engine                                   │
 │  ├─ JavaScript Engine (JavaScriptCore/J2V8)             │
 │  ├─ Sandbox Environment                                  │
-│  └─ Runtime Monitor (Memory, CPU, Timeout)              │
+│  └─ Runtime Monitor (Execution Timeout)                 │
 ├─────────────────────────────────────────────────────────┤
 │  Script Management                                       │
 │  ├─ Installation & Updates                              │
@@ -35,6 +36,10 @@ A powerful mobile script host environment that enables users to write and instal
 - **Native UI Components**: Full access to native UI widgets with event handling
 - **Secure Sandbox**: Isolated script execution with permission management
 - **Script Management**: Install, update, and manage scripts locally
+- **Configuration Interface**: Manage API keys and settings from the Settings screen
+- **Custom API Calls**: HTTP GET/POST with custom headers for authenticated APIs
+- **Wrapped Agent Conversations**: Example agent-chat script for OpenAI-compatible endpoints
+- **Server Monitoring**: Example script that polls and displays server health status
 - **Cross-platform**: Shared core logic with platform-specific UI implementations
 - **Developer Tools**: Debugging support, logging, and comprehensive API documentation
 
@@ -47,6 +52,7 @@ scripts_aggregation_mobile/
 │   │   └── src/main/
 │   │       ├── java/com/scripthost/
 │   │       │   ├── bridge/      # Native bridge implementations
+│   │       │   ├── config/      # Key/value configuration store
 │   │       │   ├── engine/      # Script engine integration
 │   │       │   ├── security/    # Permission & sandbox
 │   │       │   └── ui/          # UI components
@@ -100,7 +106,7 @@ scripts_aggregation_mobile/
 1. **Sandbox Isolation**: Scripts run in isolated contexts with limited API access
 2. **Permission System**: Explicit permission declarations and runtime checks
 3. **Signature Verification**: All scripts must be signed and verified
-4. **Runtime Monitoring**: CPU, memory, and execution time limits
+4. **Runtime Monitoring**: Execution time limits and network timeouts
 5. **Platform Compliance**: iOS-compliant (no dynamic code download from servers)
 
 ## Getting Started
@@ -152,15 +158,47 @@ list.onItemTap = function(index) {
 UI.addView(list);
 ```
 
+## Configuration
+
+API keys and other settings are managed from the **Settings** screen
+(gear button on the main screen). Entries are stored as key/value pairs in the
+app's private storage and are readable by scripts that declare the `CONFIG`
+permission:
+
+```javascript
+// Read an API key configured in Settings
+let apiKey = Config.get("OPENAI_API_KEY");
+```
+
+Example uses:
+
+- `OPENAI_API_KEY` / `OPENAI_API_BASE` - wrapped agent conversations
+  (`scripts/examples/agent_conversation.js`)
+- `MONITOR_URL` / `MONITOR_API_KEY` - server monitoring
+  (`scripts/examples/server_monitor.js`)
+
+Custom HTTP requests can attach configured keys as headers:
+
+```javascript
+let headers = { "Authorization": "Bearer " + Config.get("OPENAI_API_KEY") };
+Network.post(url, headers, JSON.stringify({ query: "hello" }), function(data, error) {
+    if (error) { console.error(error); } else { console.log(data); }
+});
+```
+
+> Note: `CONFIG` is a non-dangerous permission that is auto-granted to any
+> installed script that declares it. Only install scripts you trust. See
+> `docs/SECURITY.md` for details.
+
 ## Development Roadmap
 
 - [x] Phase 1: Architecture design and project setup
-- [ ] Phase 2: Core script engine integration
-- [ ] Phase 3: Native UI bridge layer
-- [ ] Phase 4: Security and permission system
-- [ ] Phase 5: Script management module
-- [ ] Phase 6: Testing and debugging tools
-- [ ] Phase 7: Documentation and examples
+- [x] Phase 2: Core script engine integration
+- [x] Phase 3: Native UI bridge layer
+- [x] Phase 4: Security and permission system
+- [x] Phase 5: Script management module
+- [x] Phase 6: Testing and debugging tools
+- [x] Phase 7: Documentation and examples
 
 ## License
 
