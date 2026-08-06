@@ -108,6 +108,7 @@ check_file "scripts/examples/sensors.js" "Sensors example"
 check_file "scripts/examples/storage.js" "Storage example"
 check_file "scripts/examples/agent_conversation.js" "Agent conversation example"
 check_file "scripts/examples/server_monitor.js" "Server monitor example"
+check_file "scripts/examples/ui_controls.js" "Configurable UI controls example"
 echo ""
 
 echo "Checking Tests..."

@@ -206,8 +206,8 @@ ScriptHost is a complete mobile script aggregation platform that enables users t
 
 ## API Surface
 
-### UI Components (8)
-Button, Label, TextField, ListView, ImageView, Switch, Slider, ScrollView
+### UI Components (12)
+Button, Label, TextField, ListView, ImageView, Switch, Slider, ScrollView, CheckBox, Spinner, ProgressBar, Layout
 
 ### System APIs (5)
 Network (GET/POST with headers), Storage (read/write/delete/list), Sensor (accelerometer/gyroscope), Device (vibrate/info), Config (get/keys for API keys and settings)

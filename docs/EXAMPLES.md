@@ -178,6 +178,33 @@ Uses `setInterval` for polling and optional bearer-token authentication.
 
 ---
 
+### 9. Configurable UI Controls (`ui_controls.js`)
+
+**Description**: Showcases the expanded native UI interface: layout
+containers, form controls, common styling configuration, and dialog helpers.
+All properties are applied statically; the interface intentionally has no
+animation support.
+
+**Concepts Demonstrated**:
+- `Layout` containers (vertical and horizontal) with gravity and nesting
+- `Spinner`, `CheckBox`, `Switch`, `Slider`, and `ProgressBar` form controls
+- `TextField` input types, hints, and length limits
+- Common configuration methods (padding, margin, corner radius, visibility)
+- `ImageView` with base64 image data and scale types
+- `ScrollView` with a nested layout
+- Dialog helpers (`showConfirm`, `showPrompt`, `showListPicker`) and two-arg
+  `showToast(message, "long")`
+- Root container background via `UI.setBackgroundColor`
+
+**Permissions Required**: None
+
+**Usage**:
+```bash
+Import ui_controls.js into ScriptHost and run it
+```
+
+---
+
 ## Creating Your Own Scripts
 
 ### Basic Template

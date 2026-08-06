@@ -134,7 +134,9 @@ class IntegrationTester:
         content = ui_bridge.read_text()
 
         # Check for UI components
-        components = ['Button', 'Label', 'TextField', 'ListView', 'Switch', 'Slider']
+        components = ['Button', 'Label', 'TextField', 'ListView', 'ImageView',
+                      'Switch', 'Slider', 'ScrollView', 'CheckBox', 'Spinner',
+                      'ProgressBar', 'Layout']
         found = 0
 
         for component in components:

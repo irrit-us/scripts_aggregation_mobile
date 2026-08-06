@@ -97,7 +97,7 @@ class CodeValidator:
 
         # Check for API usage
         api_patterns = [
-            (r'new\s+(Button|Label|TextField|ListView)', 'UI Components'),
+            (r'new\s+(Button|Label|TextField|ListView|ImageView|Switch|Slider|ScrollView|CheckBox|Spinner|ProgressBar|Layout)', 'UI Components'),
             (r'UI\.addView', 'UI.addView()'),
             (r'console\.log', 'console.log()'),
             (r'function\s*\(', 'Functions'),

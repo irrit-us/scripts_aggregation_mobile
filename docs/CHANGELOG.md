@@ -53,6 +53,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `README.md` and `LICENSE` remain at the repository root
 
 ### Added
+- Expanded native UI bridge with new components: `CheckBox`, `Spinner`,
+  `ProgressBar`, and `Layout` (vertical/horizontal container)
+- Common configuration methods on every component: `setVisible`, `setEnabled`,
+  `setPadding`, `setMargin`, `setWidth`, `setHeight`, `setAlpha`,
+  `setBackgroundColor`, `setCornerRadius`, and `getViewId` (dimensions support
+  `-1` = match parent and `-2` = wrap content)
+- Text configuration methods on text-capable components: `setTextSize`,
+  `setTextColor`, `setBold`, `setItalic`, `setTextAlign`, and `setAllCaps`
+- Enhanced component APIs: `TextField.setHint`/`setHintTextColor`/
+  `setInputType`/`setMaxLength`, `ListView.setSelection`,
+  `ImageView.setImageBase64`/`setScaleType`, `Switch.setText`/`setChecked`/
+  `getChecked`, `Slider.getValue`/`setMax`/`setMin`,
+  `ScrollView.addView`/`removeView`/`setFillViewport`
+- `UI.addView` reparents views, enabling container nesting; new
+  `UI.setBackgroundColor` for the root container
+- Dialog helpers: `showConfirm`, `showPrompt`, `showListPicker`, and a
+  two-argument `showToast(message, "long")` form
+- Example script `ui_controls.js` demonstrating the expanded UI interface
+- `test_examples.py` and `validate.py` updated to cover the new UI components
 - Initial project structure
 - JavaScript engine integration with J2V8
 - Native UI bridge layer with components (Button, Label, TextField, ListView, Switch, Slider)

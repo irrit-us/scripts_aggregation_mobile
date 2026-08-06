@@ -108,7 +108,8 @@ class JavaScriptTester:
         apis_used = []
 
         # UI Components
-        ui_components = ['Button', 'Label', 'TextField', 'ListView', 'Switch', 'Slider', 'ImageView', 'ScrollView']
+        ui_components = ['Button', 'Label', 'TextField', 'ListView', 'Switch', 'Slider',
+                         'ImageView', 'ScrollView', 'CheckBox', 'Spinner', 'ProgressBar', 'Layout']
         for component in ui_components:
             if f'new {component}' in content:
                 apis_used.append(component)

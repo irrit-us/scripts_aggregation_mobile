@@ -33,7 +33,7 @@ A powerful mobile script host environment that enables users to write and instal
 ## Features
 
 - **Multi-language Script Support**: JavaScript (primary), with extensible architecture for Lua/Python
-- **Native UI Components**: Full access to native UI widgets with event handling
+- **Native UI Components**: 12 configurable widgets (Button, Label, TextField, ListView, ImageView, Switch, Slider, ScrollView, CheckBox, Spinner, ProgressBar, Layout) with common styling, layout containers, and dialog helpers
 - **Secure Sandbox**: Isolated script execution with permission management
 - **Script Management**: Install, update, and manage scripts locally
 - **Configuration Interface**: Manage API keys and settings from the Settings screen
