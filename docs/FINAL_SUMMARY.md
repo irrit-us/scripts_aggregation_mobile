@@ -269,7 +269,7 @@ ScriptHost is a **complete, fully tested, and production-ready** mobile script a
 - **Documentation**: `docs/` directory
 - **Examples**: `scripts/examples/` directory
 - **Tests**: `tests/` directory
-- **Test Report**: `TEST_REPORT.txt`
+- **Test Report**: `TEST_REPORT.md`
 
 ---
 

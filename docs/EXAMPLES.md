@@ -353,8 +353,8 @@ UI.addView(button);
 
 ## Resources
 
-- [API Reference](../docs/API.md) - Complete API documentation
-- [Security Guide](../docs/SECURITY.md) - Security best practices
+- [API Reference](API.md) - Complete API documentation
+- [Security Guide](SECURITY.md) - Security best practices
 - [GitHub Repository](https://github.com/scripthost/scripthost) - Source code and issues
 
 ## Contributing Examples

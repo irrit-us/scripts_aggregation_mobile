@@ -122,9 +122,14 @@ class CodeValidator:
             "docs/API.md",
             "docs/SECURITY.md",
             "docs/EXAMPLES.md",
-            "BUILD.md",
-            "CONTRIBUTING.md",
-            "QUICKSTART.md",
+            "docs/BUILD.md",
+            "docs/CHANGELOG.md",
+            "docs/CONTRIBUTING.md",
+            "docs/FINAL_SUMMARY.md",
+            "docs/PROJECT_SUMMARY.md",
+            "docs/QUICKSTART.md",
+            "docs/STATUS.md",
+            "docs/TEST_REPORT.md",
         ]
 
         for doc in required_docs:

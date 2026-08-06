@@ -77,9 +77,17 @@ scripts_aggregation_mobile/
 ├── scripts/                 # Example scripts
 │   └── examples/
 ├── docs/                    # Documentation
-│   ├── API.md
-│   ├── SECURITY.md
-│   └── EXAMPLES.md
+│   ├── API.md               # Complete API reference
+│   ├── SECURITY.md          # Security model
+│   ├── EXAMPLES.md          # Example script patterns
+│   ├── BUILD.md             # Build instructions
+│   ├── CHANGELOG.md         # Version history
+│   ├── CONTRIBUTING.md      # Contribution guidelines
+│   ├── FINAL_SUMMARY.md     # Implementation summary
+│   ├── PROJECT_SUMMARY.md   # Detailed project summary
+│   ├── QUICKSTART.md        # 5-minute quick start
+│   ├── STATUS.md            # Project status
+│   └── TEST_REPORT.md       # Test report
 └── tests/                   # Test suites
 ```
 
@@ -206,4 +214,4 @@ MIT License - See LICENSE file for details
 
 ## Contributing
 
-Contributions welcome! Please read CONTRIBUTING.md for guidelines.
+Contributions welcome! Please read [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.

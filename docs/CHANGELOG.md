@@ -47,8 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runtime thread affinity
 - All Development Roadmap phases (1-7) in README.md completed and ticked
 - Documentation synced with the new features (README, docs/API.md,
-  docs/EXAMPLES.md, docs/SECURITY.md, QUICKSTART.md, STATUS.txt,
-  PROJECT_SUMMARY.md)
+  docs/EXAMPLES.md, docs/SECURITY.md, docs/QUICKSTART.md, docs/STATUS.md,
+  docs/PROJECT_SUMMARY.md)
+- Documentation reorganized under `docs/` per standard conventions;
+  `README.md` and `LICENSE` remain at the repository root
 
 ### Added
 - Initial project structure
