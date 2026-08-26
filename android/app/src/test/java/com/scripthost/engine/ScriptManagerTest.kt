@@ -1,16 +1,13 @@
 package com.scripthost.engine
 
+import com.google.common.truth.Truth.assertThat
 import com.scripthost.models.InstallResult
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
 import com.scripthost.models.ScriptCategory
 import com.scripthost.security.SignatureVerifier
+import com.scripthost.util.ConsoleLogger
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -29,7 +26,7 @@ class ScriptManagerTest {
 
     @Before
     fun setUp() {
-        scriptManager = ScriptManager(tempFolder.root)
+        scriptManager = ScriptManager(tempFolder.root, logger = ConsoleLogger())
     }
 
     private fun installUnsigned(
@@ -56,16 +53,16 @@ class ScriptManagerTest {
     @Test
     fun installScript_persistsScriptAndSourceFile() = runBlocking {
         val result = installUnsigned()
-        assertTrue(result is InstallResult.Success)
+        assertThat(result is InstallResult.Success).isTrue()
 
         val script = (result as InstallResult.Success).script
-        assertEquals("testauthor.hello_world", script.id)
-        assertEquals(script, scriptManager.getScript(script.id))
+        assertThat(script.id).isEqualTo("testauthor.hello_world")
+        assertThat(scriptManager.getScript(script.id)).isEqualTo(script)
 
         val sourceFile = File(tempFolder.root, "scripts/testauthor.hello_world.js")
-        assertTrue(sourceFile.exists())
-        assertEquals("console.log('hello');", sourceFile.readText())
-        assertTrue(File(tempFolder.root, "scripts_metadata.json").exists())
+        assertThat(sourceFile.exists()).isTrue()
+        assertThat(sourceFile.readText()).isEqualTo("console.log('hello');")
+        assertThat(File(tempFolder.root, "scripts_metadata.json").exists()).isTrue()
     }
 
     @Test
@@ -80,8 +77,8 @@ class ScriptManagerTest {
             signature = null,
             verifySignature = true
         )
-        assertTrue(result is InstallResult.Failure)
-        assertTrue((result as InstallResult.Failure).error.contains("Signature"))
+        assertThat(result is InstallResult.Failure).isTrue()
+        assertThat((result as InstallResult.Failure).error).contains("Signature")
     }
 
     @Test
@@ -96,7 +93,7 @@ class ScriptManagerTest {
             signature = "not-a-valid-signature",
             verifySignature = true
         )
-        assertTrue(result is InstallResult.Failure)
+        assertThat(result is InstallResult.Failure).isTrue()
     }
 
     @Test
@@ -117,7 +114,7 @@ class ScriptManagerTest {
         )
         val signature = verifier.sign(signedScript, keyPair.private)
 
-        val managerWithKey = ScriptManager(tempFolder.root, verifier)
+        val managerWithKey = ScriptManager(tempFolder.root, verifier, logger = ConsoleLogger())
         val result = managerWithKey.installScript(
             name = signedScript.name,
             version = signedScript.version,
@@ -129,15 +126,15 @@ class ScriptManagerTest {
             verifySignature = true
         )
 
-        assertTrue(result is InstallResult.Success)
+        assertThat(result is InstallResult.Success).isTrue()
     }
 
     @Test
     fun installScript_rejectsBlankFields() = runBlocking {
-        assertTrue(installUnsigned(name = "   ") is InstallResult.Failure)
-        assertTrue(installUnsigned(version = "") is InstallResult.Failure)
-        assertTrue(installUnsigned(author = " ") is InstallResult.Failure)
-        assertTrue(installUnsigned(sourceCode = "") is InstallResult.Failure)
+        assertThat(installUnsigned(name = "   ") is InstallResult.Failure).isTrue()
+        assertThat(installUnsigned(version = "") is InstallResult.Failure).isTrue()
+        assertThat(installUnsigned(author = " ") is InstallResult.Failure).isTrue()
+        assertThat(installUnsigned(sourceCode = "") is InstallResult.Failure).isTrue()
     }
 
     @Test
@@ -145,29 +142,29 @@ class ScriptManagerTest {
         installUnsigned()
 
         val result = scriptManager.updateScript("testauthor.hello_world", "2.0.0", "console.log('v2');")
-        assertTrue(result is InstallResult.Success)
+        assertThat(result is InstallResult.Success).isTrue()
 
         val updated = scriptManager.getScript("testauthor.hello_world")
-        assertNotNull(updated)
-        assertEquals("2.0.0", updated?.version)
-        assertEquals("console.log('v2');", updated?.sourceCode)
+        assertThat(updated).isNotNull()
+        assertThat(updated?.version).isEqualTo("2.0.0")
+        assertThat(updated?.sourceCode).isEqualTo("console.log('v2');")
     }
 
     @Test
     fun updateScript_unknownIdFails() = runBlocking {
         val result = scriptManager.updateScript("missing.script", "1.0.0", "code")
-        assertTrue(result is InstallResult.Failure)
+        assertThat(result is InstallResult.Failure).isTrue()
     }
 
     @Test
     fun uninstallScript_removesScriptAndFile() = runBlocking {
         installUnsigned()
-        assertNotNull(scriptManager.getScript("testauthor.hello_world"))
+        assertThat(scriptManager.getScript("testauthor.hello_world")).isNotNull()
 
         val removed = scriptManager.uninstallScript("testauthor.hello_world")
-        assertTrue(removed)
-        assertNull(scriptManager.getScript("testauthor.hello_world"))
-        assertFalse(File(tempFolder.root, "scripts/testauthor.hello_world.js").exists())
+        assertThat(removed).isTrue()
+        assertThat(scriptManager.getScript("testauthor.hello_world")).isNull()
+        assertThat(File(tempFolder.root, "scripts/testauthor.hello_world.js").exists()).isFalse()
     }
 
     @Test
@@ -175,10 +172,10 @@ class ScriptManagerTest {
         installUnsigned(name = "Counter", author = "Alice")
         installUnsigned(name = "Weather", author = "Bob", description = "Fetches forecast")
 
-        assertEquals(1, scriptManager.searchScripts("counter").size)
-        assertEquals(1, scriptManager.searchScripts("forecast").size)
-        assertEquals(1, scriptManager.searchScripts("bob").size)
-        assertEquals(0, scriptManager.searchScripts("").size) // blank -> empty result set
+        assertThat(scriptManager.searchScripts("counter")).hasSize(1)
+        assertThat(scriptManager.searchScripts("forecast")).hasSize(1)
+        assertThat(scriptManager.searchScripts("bob")).hasSize(1)
+        assertThat(scriptManager.searchScripts("")).isEmpty() // blank -> empty result set
     }
 
     @Test
@@ -187,8 +184,8 @@ class ScriptManagerTest {
         installUnsigned(name = "Game", author = "B", category = ScriptCategory.ENTERTAINMENT)
 
         val utility = scriptManager.getScriptsByCategory(ScriptCategory.UTILITY)
-        assertEquals(1, utility.size)
-        assertEquals("Utility Tool", utility.first().name)
+        assertThat(utility).hasSize(1)
+        assertThat(utility.first().name).isEqualTo("Utility Tool")
     }
 
     @Test
@@ -196,17 +193,17 @@ class ScriptManagerTest {
         installUnsigned(name = "Export Me", author = "Alice")
 
         val exported = scriptManager.exportScript("alice.export_me")
-        assertNotNull(exported)
-        assertTrue(exported!!.contains("\"name\": \"Export Me\""))
+        assertThat(exported).isNotNull()
+        assertThat(exported).contains("\"name\": \"Export Me\"")
 
         // Re-import the package into a fresh manager
         val jsonFile = File(tempFolder.root, "package.json")
-        jsonFile.writeText(exported)
-        val freshManager = ScriptManager(tempFolder.root)
+        jsonFile.writeText(exported!!)
+        val freshManager = ScriptManager(tempFolder.root, logger = ConsoleLogger())
 
         val result = freshManager.installScriptFromFile(jsonFile, verifySignature = false)
-        assertTrue(result is InstallResult.Success)
-        assertEquals("Export Me", (result as InstallResult.Success).script.name)
+        assertThat(result is InstallResult.Success).isTrue()
+        assertThat((result as InstallResult.Success).script.name).isEqualTo("Export Me")
     }
 
     @Test
@@ -215,18 +212,18 @@ class ScriptManagerTest {
         scriptFile.writeText("console.log('raw');")
 
         val result = scriptManager.installScriptFromFile(scriptFile, verifySignature = false)
-        assertTrue(result is InstallResult.Success)
-        assertEquals("my_script", (result as InstallResult.Success).script.name)
-        assertTrue(scriptManager.getAllScripts().any { it.name == "my_script" })
+        assertThat(result is InstallResult.Success).isTrue()
+        assertThat((result as InstallResult.Success).script.name).isEqualTo("my_script")
+        assertThat(scriptManager.getAllScripts().map { it.name }).contains("my_script")
     }
 
     @Test
     fun scriptsPersistAcrossManagerInstances() = runBlocking {
         installUnsigned()
 
-        val reloaded = ScriptManager(tempFolder.root)
+        val reloaded = ScriptManager(tempFolder.root, logger = ConsoleLogger())
         val script = reloaded.getScript("testauthor.hello_world")
-        assertNotNull(script)
-        assertEquals("console.log('hello');", script?.sourceCode)
+        assertThat(script).isNotNull()
+        assertThat(script?.sourceCode).isEqualTo("console.log('hello');")
     }
 }

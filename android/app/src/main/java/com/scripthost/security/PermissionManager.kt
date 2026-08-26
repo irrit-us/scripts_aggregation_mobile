@@ -3,11 +3,13 @@ package com.scripthost.security
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Permission Manager - Handles runtime permission requests and checks
@@ -16,8 +18,8 @@ import java.util.concurrent.ConcurrentHashMap
 class PermissionManager(private val context: Context) {
 
     private val grantedPermissions = ConcurrentHashMap<String, MutableSet<Permission>>()
-    private val permissionCallbacks = mutableMapOf<Int, (Boolean) -> Unit>()
-    private var requestCodeCounter = 1000
+    private val permissionCallbacks = ConcurrentHashMap<Int, (Boolean) -> Unit>()
+    private val requestCodeCounter = AtomicInteger(1000)
 
     companion object {
         // Map script permissions to Android permissions
@@ -39,17 +41,40 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
+     * Check if a script is allowed to use a permission at runtime: it must be
+     * in the script's granted set AND pass the system-level check.
+     */
+    fun hasScriptPermission(scriptId: String, permission: Permission): Boolean {
+        val granted = grantedPermissions[scriptId]?.contains(permission) ?: false
+        return granted && hasPermission(permission)
+    }
+
+    /**
      * Check if current context has a permission (for system bridge)
      */
     fun hasPermission(permission: Permission): Boolean {
-        // Non-dangerous permissions are always granted
+        // Non-dangerous permissions are always granted, except notifications
+        // on API 33+ where POST_NOTIFICATIONS is a runtime permission.
         if (!permission.dangerous) {
-            return true
+            if (permission != Permission.NOTIFICATIONS || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                return true
+            }
         }
 
         // Check Android system permission
-        val androidPermission = PERMISSION_MAPPING[permission] ?: return false
+        val androidPermission = androidPermissionFor(permission) ?: return false
         return ContextCompat.checkSelfPermission(context, androidPermission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * Map a script permission to its Android runtime permission.
+     * NOTIFICATIONS maps to POST_NOTIFICATIONS on API 33+ only.
+     */
+    private fun androidPermissionFor(permission: Permission): String? {
+        if (permission == Permission.NOTIFICATIONS && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return android.Manifest.permission.POST_NOTIFICATIONS
+        }
+        return PERMISSION_MAPPING[permission]
     }
 
     /**
@@ -67,27 +92,28 @@ class PermissionManager(private val context: Context) {
 
         // Separate permissions into granted, denied, and needs request
         for (permission in requestedPermissions) {
-            if (!permission.dangerous) {
-                // Non-dangerous permissions are auto-granted
+            val androidPermission = androidPermissionFor(permission)
+            // Non-dangerous permissions are auto-granted unless they map to a
+            // runtime permission (notifications on API 33+)
+            if (!permission.dangerous && androidPermission == null) {
                 granted.add(permission)
-            } else {
-                val androidPermission = PERMISSION_MAPPING[permission]
-                if (androidPermission != null) {
-                    when {
-                        ContextCompat.checkSelfPermission(context, androidPermission) == PackageManager.PERMISSION_GRANTED -> {
-                            granted.add(permission)
-                        }
-                        ActivityCompat.shouldShowRequestPermissionRationale(activity, androidPermission) -> {
-                            needsRequest.add(permission)
-                        }
-                        else -> {
-                            needsRequest.add(permission)
-                        }
+                continue
+            }
+            if (androidPermission != null) {
+                when {
+                    ContextCompat.checkSelfPermission(context, androidPermission) == PackageManager.PERMISSION_GRANTED -> {
+                        granted.add(permission)
                     }
-                } else {
-                    // Permission doesn't require Android permission
-                    granted.add(permission)
+                    ActivityCompat.shouldShowRequestPermissionRationale(activity, androidPermission) -> {
+                        needsRequest.add(permission)
+                    }
+                    else -> {
+                        needsRequest.add(permission)
+                    }
                 }
+            } else {
+                // Permission doesn't require Android permission
+                granted.add(permission)
             }
         }
 
@@ -100,8 +126,8 @@ class PermissionManager(private val context: Context) {
         }
 
         // Request Android permissions
-        val requestCode = requestCodeCounter++
-        val androidPermissions = needsRequest.mapNotNull { PERMISSION_MAPPING[it] }.toTypedArray()
+        val requestCode = requestCodeCounter.incrementAndGet()
+        val androidPermissions = needsRequest.mapNotNull { androidPermissionFor(it) }.toTypedArray()
 
         permissionCallbacks[requestCode] = { allGranted ->
             if (allGranted) {

@@ -18,7 +18,8 @@ import com.scripthost.security.PermissionManager
  */
 class ConfigBridge(
     private val configStore: ConfigStore,
-    private val permissionManager: PermissionManager
+    private val permissionManager: PermissionManager,
+    private val scriptId: String
 ) : ScriptBridge {
 
     private var runtime: V8? = null
@@ -43,7 +44,7 @@ class ConfigBridge(
      */
     @Suppress("unused")
     fun getConfig(key: String): String? {
-        if (!permissionManager.hasPermission(Permission.CONFIG)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.CONFIG)) {
             return null
         }
         return configStore.get(key)
@@ -55,7 +56,7 @@ class ConfigBridge(
     @Suppress("unused")
     fun listKeys(): V8Array? {
         val runtime = this.runtime ?: return null
-        if (!permissionManager.hasPermission(Permission.CONFIG)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.CONFIG)) {
             return null
         }
 

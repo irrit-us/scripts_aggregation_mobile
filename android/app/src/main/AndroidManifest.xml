@@ -26,6 +26,9 @@
     <!-- Haptics (used by Device.vibrate()) -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Notifications (runtime permission on API 33+, requested per script) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".ScriptHostApplication"
         android:allowBackup="true"

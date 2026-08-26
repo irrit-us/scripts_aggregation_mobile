@@ -39,6 +39,11 @@ android {
     buildFeatures {
         viewBinding = true
     }
+
+    testOptions {
+        // Required so Robolectric can load app resources in JVM unit tests
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -61,12 +66,20 @@ dependencies {
     // JSON
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
-    // Security - Crypto
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    // WorkManager - daily scheduled notifications
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // JSch - SSH client (maintained fork)
+    implementation("com.github.mwiede:jsch:0.2.18")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito:mockito-core:5.8.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("com.google.truth:truth:1.4.2")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("androidx.work:work-testing:2.9.0")
+    testImplementation("androidx.test:core:1.5.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     // Real org.json implementation for local JVM tests (android.jar stubs it)
     testImplementation("org.json:json:20240303")

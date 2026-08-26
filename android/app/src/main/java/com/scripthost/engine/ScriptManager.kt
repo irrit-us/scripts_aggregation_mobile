@@ -7,6 +7,8 @@ import com.scripthost.models.Script
 import com.scripthost.models.ScriptCategory
 import com.scripthost.models.VerificationResult
 import com.scripthost.security.SignatureVerifier
+import com.scripthost.util.AndroidLogger
+import com.scripthost.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -21,10 +23,12 @@ import java.util.Date
  * @param storageDir root directory used for the repository. Injected instead of
  *                   an Android [Context] so the manager is testable on the JVM.
  * @param signatureVerifier verifier used to validate script signatures.
+ * @param logger destination for internal warnings/errors.
  */
 class ScriptManager(
     private val storageDir: File,
-    private val signatureVerifier: SignatureVerifier = SignatureVerifier()
+    private val signatureVerifier: SignatureVerifier = SignatureVerifier(),
+    private val logger: Logger = AndroidLogger()
 ) {
 
     /**
@@ -300,7 +304,7 @@ class ScriptManager(
             }
 
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error("ScriptManager", "Failed to load installed scripts", e)
         }
     }
 
@@ -337,7 +341,7 @@ class ScriptManager(
             metadataFile.writeText(jsonArray.toString(2))
 
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error("ScriptManager", "Failed to save scripts metadata", e)
         }
     }
 

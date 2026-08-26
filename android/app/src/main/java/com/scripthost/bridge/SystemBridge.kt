@@ -39,7 +39,8 @@ import java.net.URL
  */
 class SystemBridge(
     private val context: Context,
-    private val permissionManager: PermissionManager
+    private val permissionManager: PermissionManager,
+    private val scriptId: String
 ) : ScriptBridge {
 
     private var runtime: V8? = null
@@ -167,7 +168,7 @@ class SystemBridge(
      * HTTP GET request with optional headers (e.g. Authorization).
      */
     fun httpGet(url: String, headers: Map<String, String>?, callback: V8Function) {
-        if (!permissionManager.hasPermission(Permission.INTERNET)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.INTERNET)) {
             invokeCallback(callback, null, "Permission denied: INTERNET")
             return
         }
@@ -205,7 +206,7 @@ class SystemBridge(
      * HTTP POST request with optional headers (e.g. Authorization).
      */
     fun httpPost(url: String, headers: Map<String, String>?, body: String, callback: V8Function) {
-        if (!permissionManager.hasPermission(Permission.INTERNET)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.INTERNET)) {
             invokeCallback(callback, null, "Permission denied: INTERNET")
             return
         }
@@ -250,7 +251,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun readFile(filename: String): String? {
-        if (!permissionManager.hasPermission(Permission.READ_STORAGE)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.READ_STORAGE)) {
             return null
         }
 
@@ -267,7 +268,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun writeFile(filename: String, content: String): Boolean {
-        if (!permissionManager.hasPermission(Permission.WRITE_STORAGE)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.WRITE_STORAGE)) {
             return false
         }
 
@@ -285,7 +286,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun deleteFile(filename: String): Boolean {
-        if (!permissionManager.hasPermission(Permission.WRITE_STORAGE)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.WRITE_STORAGE)) {
             return false
         }
 
@@ -302,7 +303,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun listFiles(directory: String): V8Array? {
-        if (!permissionManager.hasPermission(Permission.READ_STORAGE)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.READ_STORAGE)) {
             return null
         }
         val runtime = this.runtime ?: return null
@@ -330,7 +331,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun getAccelerometer(callback: V8Function) {
-        if (!permissionManager.hasPermission(Permission.ACCELEROMETER)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.ACCELEROMETER)) {
             return
         }
         startSensor(Sensor.TYPE_ACCELEROMETER, callback)
@@ -341,7 +342,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun getGyroscope(callback: V8Function) {
-        if (!permissionManager.hasPermission(Permission.GYROSCOPE)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.GYROSCOPE)) {
             return
         }
         startSensor(Sensor.TYPE_GYROSCOPE, callback)
@@ -404,7 +405,7 @@ class SystemBridge(
      */
     @Suppress("unused")
     fun vibrate(durationMs: Int) {
-        if (!permissionManager.hasPermission(Permission.VIBRATE)) {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.VIBRATE)) {
             return
         }
 

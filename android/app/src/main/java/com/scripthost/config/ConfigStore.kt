@@ -1,5 +1,7 @@
 package com.scripthost.config
 
+import com.scripthost.util.AndroidLogger
+import com.scripthost.util.Logger
 import org.json.JSONObject
 import java.io.File
 
@@ -10,11 +12,19 @@ import java.io.File
  * (`app_config.json`). The directory is injected instead of an Android
  * [android.content.Context] so the store is testable on the JVM.
  *
- * Note: values are stored in plaintext inside app-private storage. This keeps
- * the implementation transparent and dependency-light; the Android app
- * sandbox prevents other apps from reading the file.
+ * At-rest encryption: each value is encrypted with [cipher] before it is
+ * written to disk (in the app, an [AesGcmValueCipher] backed by an
+ * AndroidKeyStore key; [PlaintextCipher] by default for tests).
+ *
+ * Migration: a value that fails to decrypt is treated as legacy plaintext
+ * from before encryption was introduced. It stays readable as-is and is
+ * transparently re-encrypted on the next [save].
  */
-class ConfigStore(private val storageDir: File) {
+class ConfigStore(
+    private val storageDir: File,
+    private val cipher: ValueCipher = PlaintextCipher,
+    private val logger: Logger = AndroidLogger()
+) {
 
     private val configFile = File(storageDir, "app_config.json")
     private val values = LinkedHashMap<String, String>()
@@ -70,20 +80,37 @@ class ConfigStore(private val storageDir: File) {
         try {
             val json = JSONObject(configFile.readText())
             json.keys().forEach { key ->
-                values[key] = json.getString(key)
+                values[key] = decryptValue(json.getString(key))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.warn(TAG, "Failed to load config file", e)
         }
     }
 
     private fun save() {
         try {
             val json = JSONObject()
-            values.forEach { (key, value) -> json.put(key, value) }
+            values.forEach { (key, value) -> json.put(key, cipher.encrypt(value)) }
             configFile.writeText(json.toString(2))
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.warn(TAG, "Failed to save config file", e)
         }
+    }
+
+    /**
+     * Decrypt a stored value. Values that fail decryption are legacy plaintext
+     * and are returned unchanged; they are re-encrypted on the next [save].
+     */
+    private fun decryptValue(stored: String): String {
+        return try {
+            cipher.decrypt(stored)
+        } catch (e: Exception) {
+            logger.warn(TAG, "Treating undecryptable value as legacy plaintext")
+            stored
+        }
+    }
+
+    private companion object {
+        const val TAG = "ConfigStore"
     }
 }

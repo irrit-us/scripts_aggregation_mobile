@@ -6,18 +6,23 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.scripthost.ScriptHostApplication
 import com.scripthost.bridge.ConfigBridge
+import com.scripthost.bridge.NotificationBridge
+import com.scripthost.bridge.SSHBridge
 import com.scripthost.bridge.SystemBridge
 import com.scripthost.bridge.UIBridge
 import com.scripthost.engine.ExecutionResult
 import com.scripthost.engine.JavaScriptEngine
 import com.scripthost.models.ScriptContext
 import com.scripthost.models.ScriptState
+import com.scripthost.util.AndroidLogger
 import kotlinx.coroutines.launch
 
 /**
  * Script Runtime Activity - Execute scripts with UI rendering
  */
 class ScriptRuntimeActivity : AppCompatActivity() {
+
+    private val logger = AndroidLogger()
 
     private lateinit var scriptContainer: LinearLayout
     private lateinit var consoleOutput: TextView
@@ -139,13 +144,18 @@ class ScriptRuntimeActivity : AppCompatActivity() {
                 scriptEngine = JavaScriptEngine(this@ScriptRuntimeActivity)
 
                 // Register bridges
+                val scriptId = context.script.id
                 val uiBridge = UIBridge(this@ScriptRuntimeActivity, scriptContainer)
-                val systemBridge = SystemBridge(this@ScriptRuntimeActivity, permissionManager)
-                val configBridge = ConfigBridge(app.configStore, permissionManager)
+                val systemBridge = SystemBridge(this@ScriptRuntimeActivity, permissionManager, scriptId)
+                val configBridge = ConfigBridge(app.configStore, permissionManager, scriptId)
+                val notificationBridge = NotificationBridge(this@ScriptRuntimeActivity, permissionManager, scriptId)
+                val sshBridge = SSHBridge(permissionManager, scriptId)
 
                 scriptEngine?.registerBridge(uiBridge)
                 scriptEngine?.registerBridge(systemBridge)
                 scriptEngine?.registerBridge(configBridge)
+                scriptEngine?.registerBridge(notificationBridge)
+                scriptEngine?.registerBridge(sshBridge)
 
                 // Execute script
                 appendConsole("Starting script: ${context.script.name}")
@@ -172,7 +182,7 @@ class ScriptRuntimeActivity : AppCompatActivity() {
 
             } catch (e: Exception) {
                 appendConsole("Exception: ${e.message}")
-                e.printStackTrace()
+                logger.error(TAG, "Script execution failed", e)
             }
         }
     }
@@ -208,5 +218,9 @@ class ScriptRuntimeActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         scriptEngine?.release()
+    }
+
+    companion object {
+        private const val TAG = "ScriptRuntimeActivity"
     }
 }

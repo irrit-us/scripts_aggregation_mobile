@@ -32,6 +32,11 @@ class IntegrationTester:
             ("Script Execution Flow", self.test_script_execution),
             ("Error Handling", self.test_error_handling),
             ("Resource Management", self.test_resource_management),
+            ("Chart View", self.test_chart_view),
+            ("Notification Bridge", self.test_notification_bridge),
+            ("SSH Bridge", self.test_ssh_bridge),
+            ("Testing Framework", self.test_testing_framework),
+            ("New Capability Examples", self.test_new_capability_examples),
         ]
 
         for test_name, test_func in tests:
@@ -102,6 +107,7 @@ class IntegrationTester:
         # Check for key methods
         checks = [
             ('hasPermission', 'Permission checking'),
+            ('hasScriptPermission', 'Per-script permission enforcement'),
             ('requestPermissions', 'Permission requesting'),
             ('onRequestPermissionsResult', 'Permission result handling'),
         ]
@@ -288,6 +294,180 @@ class IntegrationTester:
                 print(f"  [WARN]  {desc} not explicitly found")
 
         return found >= 2  # At least 2 resource management features
+
+    def test_chart_view(self) -> bool:
+        """Test chart widget integration"""
+        chart_view = self.project_root / "android/app/src/main/java/com/scripthost/ui/chart/SimpleChartView.kt"
+        if not chart_view.exists():
+            print("  [FAIL] SimpleChartView.kt not found")
+            return False
+        print("  [OK] SimpleChartView.kt present")
+
+        chart_scale = self.project_root / "android/app/src/main/java/com/scripthost/ui/chart/ChartScale.kt"
+        if not chart_scale.exists():
+            print("  [FAIL] ChartScale.kt not found")
+            return False
+        print("  [OK] ChartScale.kt present")
+
+        ui_bridge = self.project_root / "android/app/src/main/java/com/scripthost/bridge/UIBridge.kt"
+        if not ui_bridge.exists():
+            print("  [FAIL] UIBridge.kt not found")
+            return False
+
+        content = ui_bridge.read_text()
+        for pattern, desc in [('createChart', 'Chart factory method'),
+                              ('"Chart"', 'Chart constructor registration')]:
+            if pattern in content:
+                print(f"  [OK] {desc}")
+            else:
+                print(f"  [FAIL] Missing: {desc}")
+                return False
+
+        chart_test = self.project_root / "android/app/src/test/java/com/scripthost/ui/chart/ChartScaleTest.kt"
+        if not chart_test.exists():
+            print("  [FAIL] ChartScaleTest.kt not found")
+            return False
+        print("  [OK] ChartScaleTest.kt present")
+
+        return True
+
+    def test_notification_bridge(self) -> bool:
+        """Test notification and scheduler bridge integration"""
+        notif_bridge = self.project_root / "android/app/src/main/java/com/scripthost/bridge/NotificationBridge.kt"
+        if not notif_bridge.exists():
+            print("  [FAIL] NotificationBridge.kt not found")
+            return False
+
+        content = notif_bridge.read_text()
+        for pattern, desc in [('registerJavaMethod', 'JS method registration'),
+                              ('hasScriptPermission', 'Permission gating'),
+                              ('Notify', 'Notify global'),
+                              ('Scheduler', 'Scheduler global')]:
+            if pattern in content:
+                print(f"  [OK] {desc}")
+            else:
+                print(f"  [FAIL] Missing: {desc}")
+                return False
+
+        for rel_path in ["android/app/src/main/java/com/scripthost/notify/DailyNotificationWorker.kt",
+                         "android/app/src/main/java/com/scripthost/notify/NextRunCalculator.kt"]:
+            if not (self.project_root / rel_path).exists():
+                print(f"  [FAIL] {rel_path} not found")
+                return False
+            print(f"  [OK] {rel_path} present")
+
+        manifest = self.project_root / "android/app/src/main/AndroidManifest.xml"
+        if not manifest.exists() or 'POST_NOTIFICATIONS' not in manifest.read_text():
+            print("  [FAIL] POST_NOTIFICATIONS missing from AndroidManifest.xml")
+            return False
+        print("  [OK] POST_NOTIFICATIONS declared in manifest")
+
+        gradle = self.project_root / "android/app/build.gradle.kts"
+        if not gradle.exists() or 'work-runtime' not in gradle.read_text():
+            print("  [FAIL] work-runtime dependency missing from build.gradle.kts")
+            return False
+        print("  [OK] WorkManager dependency present")
+
+        calc_test = self.project_root / "android/app/src/test/java/com/scripthost/notify/NextRunCalculatorTest.kt"
+        if not calc_test.exists():
+            print("  [FAIL] NextRunCalculatorTest.kt not found")
+            return False
+        print("  [OK] NextRunCalculatorTest.kt present")
+
+        return True
+
+    def test_ssh_bridge(self) -> bool:
+        """Test SSH bridge integration"""
+        ssh_bridge = self.project_root / "android/app/src/main/java/com/scripthost/bridge/SSHBridge.kt"
+        if not ssh_bridge.exists():
+            print("  [FAIL] SSHBridge.kt not found")
+            return False
+        print("  [OK] SSHBridge.kt present")
+
+        session_manager = self.project_root / "android/app/src/main/java/com/scripthost/ssh/SSHSessionManager.kt"
+        if not session_manager.exists():
+            print("  [FAIL] SSHSessionManager.kt not found")
+            return False
+        print("  [OK] SSHSessionManager.kt present")
+
+        content = ssh_bridge.read_text()
+        if 'hasScriptPermission(scriptId, Permission.SSH)' in content:
+            print("  [OK] SSH permission gating")
+        else:
+            print("  [FAIL] Missing: hasScriptPermission(scriptId, Permission.SSH)")
+            return False
+
+        script_kt = self.project_root / "android/app/src/main/java/com/scripthost/models/Script.kt"
+        if not script_kt.exists() or 'SSH(' not in script_kt.read_text():
+            print("  [FAIL] Permission.SSH missing from models/Script.kt")
+            return False
+        print("  [OK] Permission.SSH declared")
+
+        gradle = self.project_root / "android/app/build.gradle.kts"
+        if not gradle.exists() or 'jsch' not in gradle.read_text():
+            print("  [FAIL] jsch dependency missing from build.gradle.kts")
+            return False
+        print("  [OK] JSch dependency present")
+
+        ssh_test = self.project_root / "android/app/src/test/java/com/scripthost/ssh/SSHSessionManagerTest.kt"
+        if not ssh_test.exists():
+            print("  [FAIL] SSHSessionManagerTest.kt not found")
+            return False
+        print("  [OK] SSHSessionManagerTest.kt present")
+
+        return True
+
+    def test_testing_framework(self) -> bool:
+        """Test unit-testing framework setup"""
+        gradle = self.project_root / "android/app/build.gradle.kts"
+        if not gradle.exists():
+            print("  [FAIL] build.gradle.kts not found")
+            return False
+
+        content = gradle.read_text()
+
+        # Check for test framework dependencies and options
+        checks = [
+            ('robolectric', 'Robolectric (JVM Android tests)'),
+            ('truth', 'Truth assertions'),
+            ('mockito-kotlin', 'Mockito Kotlin mocking'),
+            ('work-testing', 'WorkManager testing'),
+            ('isIncludeAndroidResources', 'Android resources in unit tests'),
+        ]
+
+        for pattern, desc in checks:
+            if pattern in content:
+                print(f"  [OK] {desc}")
+            else:
+                print(f"  [FAIL] Missing: {desc}")
+                return False
+
+        return True
+
+    def test_new_capability_examples(self) -> bool:
+        """Test new capability example scripts"""
+        examples_dir = self.project_root / "scripts/examples"
+
+        examples = [
+            ("monitor_port_chart.js", ['new Chart']),
+            ("daily_fitness.js", ['Scheduler.scheduleDaily', 'Notify.post']),
+            ("stock_trends.js", ['Network.get', 'new Chart']),
+            ("tmux_remote.js", ['SSH.connect', 'SSH.exec']),
+        ]
+
+        for filename, patterns in examples:
+            example = examples_dir / filename
+            if not example.exists():
+                print(f"  [FAIL] {filename} not found")
+                return False
+            content = example.read_text()
+            for pattern in patterns:
+                if pattern not in content:
+                    print(f"  [FAIL] {filename} missing '{pattern}'")
+                    return False
+            print(f"  [OK] {filename}: {', '.join(patterns)}")
+
+        return True
 
     def print_summary(self):
         """Print test summary"""

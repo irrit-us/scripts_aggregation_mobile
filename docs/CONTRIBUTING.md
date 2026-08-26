@@ -152,6 +152,10 @@ class MyClass {
 - Maintain test coverage above 80%
 - Test edge cases and error conditions
 - Use descriptive test names
+- Use Truth for assertions and mockito-kotlin for mocking, matching the
+  existing tests
+- Use Robolectric (`@RunWith(RobolectricTestRunner::class)`) when a test needs
+  Android framework classes, and `work-testing` for WorkManager workers
 
 ```kotlin
 @Test
@@ -159,6 +163,19 @@ fun `should return error when script has invalid syntax`() {
     // Test implementation
 }
 ```
+
+Run the full unit-test suite (plain JUnit plus Robolectric) on the JVM with:
+
+```bash
+cd android
+./gradlew testDebugUnitTest
+```
+
+No emulator is needed. The first run requires network access so Robolectric
+can download its `android-all` jars. Keep in mind that J2V8 loads a native
+`.so`, so JVM/Robolectric tests cannot construct a V8 runtime — bridge
+`register()`/`unregister()` paths are untestable on the JVM, and bridges
+should be tested via direct method calls.
 
 ## Pull Request Guidelines
 
@@ -212,31 +229,6 @@ scripts_aggregation_mobile/
 ├── docs/                # Documentation
 └── tests/               # Test suites
 ```
-
-## Areas for Contribution
-
-### High Priority
-
-- [ ] iOS implementation
-- [ ] Script marketplace backend
-- [ ] Additional UI components
-- [ ] More example scripts
-- [ ] Performance optimizations
-
-### Medium Priority
-
-- [ ] Lua script support
-- [ ] Python script support
-- [ ] Script debugging tools
-- [ ] IDE plugins
-- [ ] Internationalization
-
-### Low Priority
-
-- [ ] Theme customization
-- [ ] Script templates
-- [ ] Community features
-- [ ] Analytics dashboard
 
 ## Getting Help
 

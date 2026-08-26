@@ -52,7 +52,7 @@ class CodeValidator:
 
     def validate_kotlin_file(self, file_path: Path):
         """Validate individual Kotlin file"""
-        content = file_path.read_text()
+        content = file_path.read_text(encoding="utf-8")
 
         # Check package declaration
         if not re.search(r'^package\s+com\.scripthost', content, re.MULTILINE):
@@ -93,7 +93,7 @@ class CodeValidator:
 
     def validate_javascript_file(self, file_path: Path):
         """Validate individual JavaScript file"""
-        content = file_path.read_text()
+        content = file_path.read_text(encoding="utf-8")
 
         # Check for API usage
         api_patterns = [
@@ -125,17 +125,13 @@ class CodeValidator:
             "docs/BUILD.md",
             "docs/CHANGELOG.md",
             "docs/CONTRIBUTING.md",
-            "docs/FINAL_SUMMARY.md",
-            "docs/PROJECT_SUMMARY.md",
             "docs/QUICKSTART.md",
-            "docs/STATUS.md",
-            "docs/TEST_REPORT.md",
         ]
 
         for doc in required_docs:
             doc_path = self.project_root / doc
             if doc_path.exists():
-                content = doc_path.read_text()
+                content = doc_path.read_text(encoding="utf-8")
                 if len(content) > 100:  # At least 100 characters
                     self.passed += 1
                 else:

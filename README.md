@@ -8,7 +8,7 @@ A powerful mobile script host environment that enables users to write and instal
 ┌─────────────────────────────────────────────────────────┐
 │                    Application Host                      │
 ├─────────────────────────────────────────────────────────┤
-│  Native UI Layer (Android/iOS)                          │
+│  Native UI Layer (Android)                              │
 │  ├─ Button, Label, ListView, TextField, etc.            │
 │  └─ Layout Management (Flexbox-like)                    │
 ├─────────────────────────────────────────────────────────┤
@@ -19,7 +19,7 @@ A powerful mobile script host environment that enables users to write and instal
 │  └─ Permission Manager                                   │
 ├─────────────────────────────────────────────────────────┤
 │  Script Runtime Engine                                   │
-│  ├─ JavaScript Engine (JavaScriptCore/J2V8)             │
+│  ├─ JavaScript Engine (J2V8)                            │
 │  ├─ Sandbox Environment                                  │
 │  └─ Runtime Monitor (Execution Timeout)                 │
 ├─────────────────────────────────────────────────────────┤
@@ -33,81 +33,55 @@ A powerful mobile script host environment that enables users to write and instal
 ## Features
 
 - **Multi-language Script Support**: JavaScript (primary), with extensible architecture for Lua/Python
-- **Native UI Components**: 12 configurable widgets (Button, Label, TextField, ListView, ImageView, Switch, Slider, ScrollView, CheckBox, Spinner, ProgressBar, Layout) with common styling, layout containers, and dialog helpers
+- **Native UI Components**: 13 configurable widgets (Button, Label, TextField, ListView, ImageView, Switch, Slider, ScrollView, CheckBox, Spinner, ProgressBar, Layout, Chart) with common styling, layout containers, and dialog helpers
 - **Secure Sandbox**: Isolated script execution with permission management
 - **Script Management**: Install, update, and manage scripts locally
 - **Configuration Interface**: Manage API keys and settings from the Settings screen
 - **Custom API Calls**: HTTP GET/POST with custom headers for authenticated APIs
 - **Wrapped Agent Conversations**: Example agent-chat script for OpenAI-compatible endpoints
 - **Server Monitoring**: Example script that polls and displays server health status
-- **Cross-platform**: Shared core logic with platform-specific UI implementations
 - **Developer Tools**: Debugging support, logging, and comprehensive API documentation
 
 ## Project Structure
 
 ```
 scripts_aggregation_mobile/
-├── android/                 # Android native implementation
-│   ├── app/
-│   │   └── src/main/
-│   │       ├── java/com/scripthost/
-│   │       │   ├── bridge/      # Native bridge implementations
-│   │       │   ├── config/      # Key/value configuration store
-│   │       │   ├── engine/      # Script engine integration
-│   │       │   ├── security/    # Permission & sandbox
-│   │       │   └── ui/          # UI components
-│   │       └── AndroidManifest.xml
-│   └── build.gradle
-├── ios/                     # iOS native implementation
-│   ├── ScriptHost/
-│   │   ├── Bridge/          # Native bridge implementations
-│   │   ├── Engine/          # Script engine integration
-│   │   ├── Security/        # Permission & sandbox
-│   │   └── UI/              # UI components
-│   └── ScriptHost.xcodeproj
-├── shared/                  # Kotlin Multiplatform shared code
-│   └── src/
-│       ├── commonMain/
-│       │   └── kotlin/com/scripthost/
-│       │       ├── core/        # Core abstractions
-│       │       ├── models/      # Data models
-│       │       └── utils/       # Utilities
-│       ├── androidMain/
-│       └── iosMain/
-├── scripts/                 # Example scripts
-│   └── examples/
+├── android/                 # Android app (single Gradle module)
+│   └── app/
+│       └── src/
+│           ├── main/java/com/scripthost/
+│           │   ├── bridge/      # Script-facing bridges (UI, System, Config, Notify, SSH)
+│           │   ├── config/      # Encrypted key/value configuration store
+│           │   ├── engine/      # J2V8 script engine & script manager
+│           │   ├── models/      # Data models
+│           │   ├── notify/      # Scheduled-notification worker
+│           │   ├── security/    # Permissions & signature verification
+│           │   ├── ssh/         # SSH session management
+│           │   ├── ui/          # Activities & chart view
+│           │   └── util/        # Logging
+│           └── test/            # JUnit + Robolectric unit tests
+├── scripts/
+│   └── examples/            # Example scripts
 ├── docs/                    # Documentation
 │   ├── API.md               # Complete API reference
 │   ├── SECURITY.md          # Security model
 │   ├── EXAMPLES.md          # Example script patterns
 │   ├── BUILD.md             # Build instructions
-│   ├── CHANGELOG.md         # Version history
-│   ├── CONTRIBUTING.md      # Contribution guidelines
-│   ├── FINAL_SUMMARY.md     # Implementation summary
-│   ├── PROJECT_SUMMARY.md   # Detailed project summary
 │   ├── QUICKSTART.md        # 5-minute quick start
-│   ├── STATUS.md            # Project status
-│   └── TEST_REPORT.md       # Test report
+│   ├── CHANGELOG.md         # Version history
+│   └── CONTRIBUTING.md      # Contribution guidelines
 └── tests/                   # Test suites
 ```
 
 ## Technology Stack
 
-### Android
 - **Language**: Kotlin
 - **Script Engine**: J2V8 (V8 JavaScript engine)
 - **UI**: Native Android Views
+- **Background Scheduling**: WorkManager
+- **SSH**: JSch (maintained fork)
+- **Testing**: JUnit 4, Robolectric, Truth, mockito-kotlin, WorkManager Test
 - **Build**: Gradle
-
-### iOS
-- **Language**: Swift
-- **Script Engine**: JavaScriptCore (built-in)
-- **UI**: UIKit
-- **Build**: Xcode
-
-### Shared
-- **Framework**: Kotlin Multiplatform
-- **Core Logic**: Script management, security models, data structures
 
 ## Security Model
 
@@ -115,13 +89,12 @@ scripts_aggregation_mobile/
 2. **Permission System**: Explicit permission declarations and runtime checks
 3. **Signature Verification**: All scripts must be signed and verified
 4. **Runtime Monitoring**: Execution time limits and network timeouts
-5. **Platform Compliance**: iOS-compliant (no dynamic code download from servers)
+5. **Platform Compliance**: No dynamic code download from servers
 
 ## Getting Started
 
 ### Prerequisites
 - Android Studio Arctic Fox or later
-- Xcode 13 or later
 - JDK 11+
 - Kotlin 1.9+
 
@@ -133,11 +106,17 @@ cd android
 ./gradlew assembleDebug
 ```
 
-#### iOS
+#### Run Unit Tests (Android)
 ```bash
-cd ios
-xcodebuild -scheme ScriptHost -configuration Debug
+cd android
+./gradlew testDebugUnitTest
 ```
+
+This runs both the plain JUnit and the Robolectric suites on the JVM — no
+emulator or device required. The first run needs network access so Robolectric
+can download its `android-all` jars. Note that J2V8 loads a native `.so`, so
+JVM/Robolectric tests cannot construct a V8 runtime; bridges are tested via
+direct method calls rather than through `register()`/`unregister()`.
 
 ## Script API Example
 
@@ -182,8 +161,18 @@ Example uses:
 
 - `OPENAI_API_KEY` / `OPENAI_API_BASE` - wrapped agent conversations
   (`scripts/examples/agent_conversation.js`)
-- `MONITOR_URL` / `MONITOR_API_KEY` - server monitoring
-  (`scripts/examples/server_monitor.js`)
+- `MONITOR_URL` / `MONITOR_API_KEY` / `MONITOR_THRESHOLD` - server monitoring
+  and rolling port chart (`scripts/examples/server_monitor.js`,
+  `scripts/examples/monitor_port_chart.js`)
+- `STOCK_API_URL` / `STOCK_API_KEY` - stock trend line charts
+  (`scripts/examples/stock_trends.js`)
+- `TMUX_HOST` / `TMUX_PORT` / `TMUX_USER` / `TMUX_PASSWORD` - remote tmux
+  console over SSH (`scripts/examples/tmux_remote.js`)
+
+Other examples showcasing the newer bridges:
+
+- `scripts/examples/daily_fitness.js` - daily scheduled reminder via
+  `Scheduler.scheduleDaily` plus instant previews via `Notify.post`
 
 Custom HTTP requests can attach configured keys as headers:
 
@@ -197,16 +186,6 @@ Network.post(url, headers, JSON.stringify({ query: "hello" }), function(data, er
 > Note: `CONFIG` is a non-dangerous permission that is auto-granted to any
 > installed script that declares it. Only install scripts you trust. See
 > `docs/SECURITY.md` for details.
-
-## Development Roadmap
-
-- [x] Phase 1: Architecture design and project setup
-- [x] Phase 2: Core script engine integration
-- [x] Phase 3: Native UI bridge layer
-- [x] Phase 4: Security and permission system
-- [x] Phase 5: Script management module
-- [x] Phase 6: Testing and debugging tools
-- [x] Phase 7: Documentation and examples
 
 ## License
 

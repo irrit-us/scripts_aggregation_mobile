@@ -10,7 +10,10 @@ Complete API documentation for writing scripts in ScriptHost.
 4. [Storage API](#storage-api)
 5. [Sensor API](#sensor-api)
 6. [Device API](#device-api)
-7. [Global Functions](#global-functions)
+7. [Notify API](#notify-api)
+8. [Scheduler API](#scheduler-api)
+9. [SSH API](#ssh-api)
+10. [Global Functions](#global-functions)
 
 ---
 
@@ -362,6 +365,34 @@ UI.addView(row);
 
 ---
 
+### Chart
+
+Lightweight chart view for numeric series.
+
+```javascript
+let chart = new Chart(type)
+```
+
+`type` is `"line"` or `"bar"`.
+
+**Methods:**
+- `setData(values: array)` - Set data points (array of numbers)
+- `setLabels(labels: array)` - Set category labels (array of strings)
+- `setColor(color: string)` - Series color (hex: `"#RRGGBB"`)
+
+**Permissions Required:** None
+
+**Example:**
+```javascript
+let chart = new Chart("line");
+chart.setLabels(["Mon", "Tue", "Wed"]);
+chart.setData([3, 7, 5]);
+chart.setColor("#34C759");
+UI.addView(chart);
+```
+
+---
+
 ## UI Namespace
 
 The global `UI` object manages the root container.
@@ -552,6 +583,16 @@ for (let i = 0; i < keys.length; i++) {
 > **Security note**: `CONFIG` is a non-dangerous permission that is auto-granted
 > to any installed script declaring it. Only install scripts you trust.
 
+### Keys Used by the Bundled Examples
+
+- `MONITOR_URL` / `MONITOR_API_KEY` / `MONITOR_THRESHOLD` - monitor endpoint
+  URL, optional bearer token, and optional numeric alert threshold
+  (`server_monitor.js`, `monitor_port_chart.js`)
+- `STOCK_API_URL` / `STOCK_API_KEY` - quote API URL containing a `{symbol}`
+  placeholder, plus an optional bearer token (`stock_trends.js`)
+- `TMUX_HOST` / `TMUX_PORT` / `TMUX_USER` / `TMUX_PASSWORD` - SSH connection
+  settings for the remote tmux console (`tmux_remote.js`)
+
 ---
 
 ## Storage API
@@ -708,6 +749,157 @@ console.log("Manufacturer: " + info.manufacturer);
 console.log("Model: " + info.model);
 console.log("Android Version: " + info.androidVersion);
 console.log("SDK Version: " + info.sdkVersion);
+```
+
+---
+
+## Notify API
+
+Posts immediate local notifications.
+
+### Notify.post(title, message)
+
+Post a local notification right away.
+
+**Parameters:**
+- `title` (string) - Notification title
+- `message` (string) - Notification body text
+
+**Returns:** Boolean success status
+
+**Permissions Required:** `NOTIFICATIONS`
+
+> On Android 13 (API 33) and above, posting notifications requires the
+> `POST_NOTIFICATIONS` runtime permission. The system shows a permission
+> dialog the first time a script uses `Notify` or `Scheduler`.
+
+**Example:**
+```javascript
+let posted = Notify.post("Daily Fitness", "Take a brisk 20-minute walk today.");
+if (posted) {
+    console.log("Notification posted");
+}
+```
+
+---
+
+## Scheduler API
+
+Schedules recurring local notifications. Scheduling is backed by WorkManager,
+so notifications fire even while the script is not running; no script code
+executes in the background.
+
+### Scheduler.scheduleDaily(id, hour, minute, title, message)
+
+Schedule a daily notification at the given local time. Calling again with the
+same `id` replaces the existing schedule.
+
+**Parameters:**
+- `id` (string) - Unique identifier for the schedule
+- `hour` (number) - Hour of day, 0-23
+- `minute` (number) - Minute of hour, 0-59
+- `title` (string) - Notification title
+- `message` (string) - Notification body text
+
+**Returns:** Boolean success status
+
+**Permissions Required:** `NOTIFICATIONS` (same Android 13+ runtime dialog as
+`Notify`)
+
+**Example:**
+```javascript
+let scheduled = Scheduler.scheduleDaily("fitness", 8, 0, "Daily Fitness",
+    "Stretch for 10 minutes before breakfast.");
+if (scheduled) {
+    showToast("Reminder scheduled for 8:00");
+}
+```
+
+---
+
+### Scheduler.cancel(id)
+
+Cancel a previously scheduled daily notification.
+
+**Parameters:**
+- `id` (string) - Identifier passed to `Scheduler.scheduleDaily`
+
+**Returns:** Boolean success status
+
+**Permissions Required:** `NOTIFICATIONS`
+
+**Example:**
+```javascript
+let cancelled = Scheduler.cancel("fitness");
+if (cancelled) {
+    showToast("Reminder cancelled");
+}
+```
+
+---
+
+## SSH API
+
+Runs commands on a remote host over an interactive SSH session (JSch). One
+session is kept per running script; credentials are supplied by the script
+(for example via `Config`) and are not persisted by the bridge.
+
+### SSH.connect(host, port, username, password, callback)
+
+Open an SSH session to a remote host.
+
+**Parameters:**
+- `host` (string) - Hostname or IP address
+- `port` (number) - SSH port (usually 22)
+- `username` (string) - Login user
+- `password` (string) - Login password
+- `callback` (function) - Callback function (error)
+
+**Permissions Required:** `SSH`
+
+**Example:**
+```javascript
+SSH.connect("192.168.1.10", 22, "pi", "secret", function(error) {
+    if (error) {
+        console.error("Connect failed: " + error);
+    } else {
+        console.log("Connected");
+    }
+});
+```
+
+---
+
+### SSH.exec(command, callback)
+
+Execute a command on the connected host.
+
+**Parameters:**
+- `command` (string) - Shell command to run
+- `callback` (function) - Callback function (output, error)
+
+**Permissions Required:** `SSH`
+
+**Example:**
+```javascript
+SSH.exec("tmux ls", function(output, error) {
+    if (error) {
+        console.error("Command failed: " + error);
+    } else {
+        console.log(output);
+    }
+});
+```
+
+---
+
+### SSH.disconnect()
+
+Close the current SSH session.
+
+**Example:**
+```javascript
+SSH.disconnect();
 ```
 
 ---
@@ -898,11 +1090,22 @@ Scripts must declare required permissions in their metadata:
 - `ACCELEROMETER` - Accelerometer sensor
 - `GYROSCOPE` - Gyroscope sensor
 - `VIBRATE` - Vibrate device
-- `NOTIFICATIONS` - Show notifications
+- `NOTIFICATIONS` - Show notifications (maps to the `POST_NOTIFICATIONS`
+  runtime permission on Android 13 / API 33 and above)
+- `SSH` - Connect to remote hosts via SSH
 - `READ_CONTACTS` - Read contacts (dangerous)
 - `WRITE_CONTACTS` - Modify contacts (dangerous)
 
 Dangerous permissions require user approval at runtime.
+
+> **Enforcement note**: Declaring a permission is only half of the gate. Every
+> bridge (Network, Config, Storage, Notify, Scheduler, SSH, etc.) is bound to
+> the running script's ID and calls
+> `PermissionManager.hasScriptPermission(scriptId, permission)` before each
+> sensitive operation, so the permission must both be declared by the script
+> and pass the system-level check. Undeclared access is denied: the call
+> fails closed (returns `null`/`false`, reports an error to the callback, or
+> no-ops, depending on the API).
 
 ---
 

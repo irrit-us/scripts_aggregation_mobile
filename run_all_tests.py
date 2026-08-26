@@ -4,6 +4,7 @@ ScriptHost Master Test Runner
 Runs all test suites and generates comprehensive report
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,12 +19,16 @@ def run_command(cmd, description):
     print(f"Running: {description}")
     print(f"{'='*70}\n")
 
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+
     try:
         result = subprocess.run(
             cmd,
             shell=True,
             text=True,
-            cwd=PROJECT_ROOT
+            cwd=PROJECT_ROOT,
+            env=env
         )
         return result.returncode == 0
     except Exception as e:
@@ -51,19 +56,19 @@ def main():
 
     # Test 2: Code Validation
     results['validation'] = run_command(
-        "python3 validate.py",
+        f"{sys.executable} validate.py",
         "Code Validation Suite"
     )
 
     # Test 3: JavaScript Examples
     results['examples'] = run_command(
-        "python3 test_examples.py",
+        f"{sys.executable} test_examples.py",
         "JavaScript Example Tests"
     )
 
     # Test 4: Integration Tests
     results['integration'] = run_command(
-        "python3 test_integration.py",
+        f"{sys.executable} test_integration.py",
         "Integration Test Suite"
     )
 
@@ -98,7 +103,7 @@ def main():
         print("Next steps:")
         print("  1. Set up JDK 11+ and the Android SDK")
         print("  2. Build: cd android && ./gradlew assembleDebug")
-        print("  3. Test: cd android && ./gradlew test")
+        print("  3. Test: cd android && ./gradlew testDebugUnitTest")
         print("  4. Install: cd android && ./gradlew installDebug")
         print("  5. Run example scripts")
         return 0

@@ -18,7 +18,10 @@ import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
+import com.eclipsesource.v8.V8Value
 import com.scripthost.engine.ScriptBridge
+import com.scripthost.ui.chart.ChartScale
+import com.scripthost.ui.chart.SimpleChartView
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
@@ -76,6 +79,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         runtime.registerJavaMethod(this, "createSpinner", "Spinner", emptyArray())
         runtime.registerJavaMethod(this, "createProgressBar", "ProgressBar", emptyArray())
         runtime.registerJavaMethod(this, "createLayout", "Layout", arrayOf(String::class.java))
+        runtime.registerJavaMethod(this, "createChart", "Chart", arrayOf(String::class.java))
 
         // Dialog helpers (global functions)
         runtime.registerJavaMethod(this, "showAlert", "showAlert",
@@ -473,6 +477,41 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         jsObject.registerJavaMethod(this, "setLayoutOrientation", "setOrientation",
             arrayOf(Int::class.java, String::class.java))
         jsObject.registerJavaMethod(this, "setLayoutGravity", "setGravity",
+            arrayOf(Int::class.java, String::class.java))
+
+        return jsObject
+    }
+
+    /**
+     * Create a Chart component. Type is "line" (default) or "bar".
+     */
+    @Suppress("unused")
+    fun createChart(type: String): V8Object {
+        val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
+
+        val chart = onUiThread {
+            SimpleChartView(context).apply {
+                chartType = if (type.equals("bar", true)) {
+                    SimpleChartView.ChartType.BAR
+                } else {
+                    SimpleChartView.ChartType.LINE
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dp(220)
+                ).apply {
+                    setMargins(dp(16), dp(16), dp(16), dp(16))
+                }
+            }
+        }
+
+        val viewId = registerView(chart)
+        val jsObject = newJsObject(runtime, viewId)
+        jsObject.registerJavaMethod(this, "setChartData", "setData",
+            arrayOf(Int::class.java, V8Array::class.java))
+        jsObject.registerJavaMethod(this, "setChartLabels", "setLabels",
+            arrayOf(Int::class.java, V8Array::class.java))
+        jsObject.registerJavaMethod(this, "setChartColor", "setColor",
             arrayOf(Int::class.java, String::class.java))
 
         return jsObject
@@ -907,6 +946,35 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     @Suppress("unused")
     fun setProgressBarIndeterminate(viewId: Int, indeterminate: Boolean) {
         onUiThread { (viewRegistry[viewId] as? ProgressBar)?.isIndeterminate = indeterminate }
+    }
+
+    @Suppress("unused")
+    fun setChartData(viewId: Int, data: V8Array) {
+        val values = mutableListOf<Float>()
+        for (i in 0 until data.length()) {
+            when (data.getType(i)) {
+                V8Value.INTEGER -> values.add(data.getInteger(i).toFloat())
+                V8Value.DOUBLE -> values.add(data.getDouble(i).toFloat())
+            }
+        }
+        onUiThread { (viewRegistry[viewId] as? SimpleChartView)?.data = values }
+    }
+
+    @Suppress("unused")
+    fun setChartLabels(viewId: Int, labels: V8Array) {
+        val labelList = mutableListOf<String>()
+        for (i in 0 until labels.length()) {
+            labelList.add(labels.getString(i))
+        }
+        onUiThread { (viewRegistry[viewId] as? SimpleChartView)?.labels = labelList }
+    }
+
+    @Suppress("unused")
+    fun setChartColor(viewId: Int, color: String) {
+        onUiThread {
+            val chart = viewRegistry[viewId] as? SimpleChartView ?: return@onUiThread
+            chart.lineColor = ChartScale.parseColorOr(color, chart.lineColor)
+        }
     }
 
     // ------------------------------------------------------------------

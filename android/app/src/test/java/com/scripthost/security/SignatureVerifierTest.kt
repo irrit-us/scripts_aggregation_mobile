@@ -1,13 +1,9 @@
 package com.scripthost.security
 
+import com.google.common.truth.Truth.assertThat
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
 import com.scripthost.models.VerificationResult
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.security.KeyPair
@@ -39,8 +35,8 @@ class SignatureVerifierTest {
     @Test
     fun generateKeyPair_producesKeys() {
         val keyPair = verifier.generateKeyPair()
-        assertNotNull(keyPair.private)
-        assertNotNull(keyPair.public)
+        assertThat(keyPair.private).isNotNull()
+        assertThat(keyPair.public).isNotNull()
     }
 
     @Test
@@ -49,7 +45,7 @@ class SignatureVerifierTest {
         val signedScript = keyPair.signedScript()
 
         val result = SignatureVerifier(keyPair.public).verify(signedScript)
-        assertTrue(result is VerificationResult.Valid)
+        assertThat(result is VerificationResult.Valid).isTrue()
     }
 
     @Test
@@ -59,7 +55,7 @@ class SignatureVerifierTest {
         val tampered = testScript(sourceCode = "console.log('tampered');").copy(signature = signature)
 
         val result = SignatureVerifier(keyPair.public).verify(tampered)
-        assertTrue(result is VerificationResult.Invalid)
+        assertThat(result is VerificationResult.Invalid).isTrue()
     }
 
     @Test
@@ -71,34 +67,34 @@ class SignatureVerifierTest {
         val script = testScript().copy(signature = signature)
 
         val result = SignatureVerifier(verifyingKeyPair.public).verify(script)
-        assertTrue(result is VerificationResult.Invalid)
+        assertThat(result is VerificationResult.Invalid).isTrue()
     }
 
     @Test
     fun verify_rejectsMissingSignature() {
         val result = verifier.verify(testScript().copy(signature = null))
-        assertTrue(result is VerificationResult.Invalid)
+        assertThat(result is VerificationResult.Invalid).isTrue()
     }
 
     @Test
     fun computeHash_isStableForSameContent() {
         val hash1 = verifier.computeHash(testScript())
         val hash2 = verifier.computeHash(testScript())
-        assertEquals(hash1, hash2)
+        assertThat(hash1).isEqualTo(hash2)
     }
 
     @Test
     fun computeHash_changesWithContent() {
         val original = verifier.computeHash(testScript())
         val modified = verifier.computeHash(testScript(sourceCode = "console.log('modified');"))
-        assertNotEquals(original, modified)
+        assertThat(original).isNotEqualTo(modified)
     }
 
     @Test
     fun verifyHash_detectsMismatch() {
         val script = testScript()
-        assertTrue(verifier.verifyHash(script, verifier.computeHash(script)))
-        assertFalse(verifier.verifyHash(script, "invalid_hash"))
+        assertThat(verifier.verifyHash(script, verifier.computeHash(script))).isTrue()
+        assertThat(verifier.verifyHash(script, "invalid_hash")).isFalse()
     }
 
     private fun KeyPair.signedScript(): Script {

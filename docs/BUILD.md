@@ -121,8 +121,22 @@ Output: `android/app/build/outputs/bundle/release/app-release.aab`
 
 ```bash
 cd android
-./gradlew test
+./gradlew testDebugUnitTest
 ```
+
+A single `testDebugUnitTest` invocation runs both the plain JUnit suites and
+the Robolectric-backed suites (Android framework classes simulated on the JVM
+via `org.robolectric:robolectric`) — no emulator or device required. Tests use
+Truth for assertions and mockito-kotlin for mocking; `work-testing` covers the
+WorkManager worker.
+
+Notes:
+
+- The first run needs network access: Robolectric downloads its `android-all`
+  jars on demand.
+- J2V8 loads a native `.so` library, so no JVM/Robolectric test can construct
+  a V8 runtime. Bridge `register()`/`unregister()` paths are untestable on the
+  JVM; bridges are tested via direct method calls instead.
 
 ### Run Instrumented Tests
 

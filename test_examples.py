@@ -109,7 +109,8 @@ class JavaScriptTester:
 
         # UI Components
         ui_components = ['Button', 'Label', 'TextField', 'ListView', 'Switch', 'Slider',
-                         'ImageView', 'ScrollView', 'CheckBox', 'Spinner', 'ProgressBar', 'Layout']
+                         'ImageView', 'ScrollView', 'CheckBox', 'Spinner', 'ProgressBar', 'Layout',
+                         'Chart']
         for component in ui_components:
             if f'new {component}' in content:
                 apis_used.append(component)
@@ -127,6 +128,12 @@ class JavaScriptTester:
             apis_used.append('Sensor')
         if 'Device.' in content:
             apis_used.append('Device')
+        if 'Notify.' in content:
+            apis_used.append('Notify')
+        if 'Scheduler.' in content:
+            apis_used.append('Scheduler')
+        if 'SSH.' in content:
+            apis_used.append('SSH')
 
         # Helper functions
         if 'showAlert' in content:

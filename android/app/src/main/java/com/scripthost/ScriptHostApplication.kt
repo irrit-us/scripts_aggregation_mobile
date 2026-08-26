@@ -1,7 +1,9 @@
 package com.scripthost
 
 import android.app.Application
+import com.scripthost.config.AesGcmValueCipher
 import com.scripthost.config.ConfigStore
+import com.scripthost.config.KeystoreKeyProvider
 import com.scripthost.engine.ScriptManager
 import com.scripthost.security.PermissionManager
 
@@ -26,7 +28,7 @@ class ScriptHostApplication : Application() {
         // Initialize managers
         scriptManager = ScriptManager(this)
         permissionManager = PermissionManager(this)
-        configStore = ConfigStore(filesDir)
+        configStore = ConfigStore(filesDir, AesGcmValueCipher(KeystoreKeyProvider().getOrCreateKey()))
     }
 
     companion object {

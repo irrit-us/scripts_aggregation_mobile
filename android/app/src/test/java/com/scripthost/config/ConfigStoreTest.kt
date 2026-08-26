@@ -1,13 +1,13 @@
 package com.scripthost.config
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import com.google.common.truth.Truth.assertThat
+import com.scripthost.util.ConsoleLogger
+import org.json.JSONObject
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import javax.crypto.KeyGenerator
 
 /**
  * Unit tests for [ConfigStore] backed by a temporary storage directory.
@@ -19,73 +19,106 @@ class ConfigStoreTest {
 
     @Test
     fun putAndGet_roundTripsValues() {
-        val store = ConfigStore(tempFolder.root)
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
         store.put("OPENAI_API_KEY", "sk-test-123")
         store.put("MONITOR_URL", "https://example.com/health")
 
-        assertEquals("sk-test-123", store.get("OPENAI_API_KEY"))
-        assertEquals("https://example.com/health", store.get("MONITOR_URL"))
-        assertTrue(store.contains("OPENAI_API_KEY"))
-        assertFalse(store.contains("MISSING"))
+        assertThat(store.get("OPENAI_API_KEY")).isEqualTo("sk-test-123")
+        assertThat(store.get("MONITOR_URL")).isEqualTo("https://example.com/health")
+        assertThat(store.contains("OPENAI_API_KEY")).isTrue()
+        assertThat(store.contains("MISSING")).isFalse()
     }
 
     @Test
     fun get_missingKey_returnsNull() {
-        val store = ConfigStore(tempFolder.root)
-        assertNull(store.get("DOES_NOT_EXIST"))
-        assertFalse(store.contains("DOES_NOT_EXIST"))
-        assertTrue(store.all().isEmpty())
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
+        assertThat(store.get("DOES_NOT_EXIST")).isNull()
+        assertThat(store.contains("DOES_NOT_EXIST")).isFalse()
+        assertThat(store.all()).isEmpty()
     }
 
     @Test
     fun put_replacesExistingValue() {
-        val store = ConfigStore(tempFolder.root)
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
         store.put("API_KEY", "first")
         store.put("API_KEY", "second")
-        assertEquals("second", store.get("API_KEY"))
+        assertThat(store.get("API_KEY")).isEqualTo("second")
     }
 
     @Test
     fun put_blankKeyIsIgnored() {
-        val store = ConfigStore(tempFolder.root)
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
         store.put("   ", "value")
-        assertTrue(store.all().isEmpty())
+        assertThat(store.all()).isEmpty()
     }
 
     @Test
     fun configPersistsAcrossStoreInstances() {
-        val store = ConfigStore(tempFolder.root)
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
         store.put("API_KEY", "persisted-value")
 
-        val reloaded = ConfigStore(tempFolder.root)
-        assertEquals("persisted-value", reloaded.get("API_KEY"))
-        assertTrue(File(tempFolder.root, "app_config.json").exists())
+        val reloaded = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
+        assertThat(reloaded.get("API_KEY")).isEqualTo("persisted-value")
+        assertThat(File(tempFolder.root, "app_config.json").exists()).isTrue()
     }
 
     @Test
     fun remove_deletesKeyAndPersists() {
-        val store = ConfigStore(tempFolder.root)
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
         store.put("API_KEY", "value")
-        assertTrue(store.remove("API_KEY"))
-        assertNull(store.get("API_KEY"))
+        assertThat(store.remove("API_KEY")).isTrue()
+        assertThat(store.get("API_KEY")).isNull()
 
-        val reloaded = ConfigStore(tempFolder.root)
-        assertNull(reloaded.get("API_KEY"))
-        assertTrue(reloaded.all().isEmpty())
+        val reloaded = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
+        assertThat(reloaded.get("API_KEY")).isNull()
+        assertThat(reloaded.all()).isEmpty()
     }
 
     @Test
     fun remove_unknownKey_returnsFalse() {
-        val store = ConfigStore(tempFolder.root)
-        assertFalse(store.remove("DOES_NOT_EXIST"))
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
+        assertThat(store.remove("DOES_NOT_EXIST")).isFalse()
     }
 
     @Test
     fun clear_removesAllEntries() {
-        val store = ConfigStore(tempFolder.root)
+        val store = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
         store.put("A", "1")
         store.put("B", "2")
         store.clear()
-        assertTrue(store.all().isEmpty())
+        assertThat(store.all()).isEmpty()
+    }
+
+    @Test
+    fun putWithCipher_encryptsValuesOnDisk() {
+        val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+        val cipher = AesGcmValueCipher(key)
+        val store = ConfigStore(tempFolder.root, cipher, ConsoleLogger())
+
+        store.put("OPENAI_API_KEY", "sk-super-secret")
+
+        val raw = File(tempFolder.root, "app_config.json").readText()
+        assertThat(raw).doesNotContain("sk-super-secret")
+        assertThat(store.get("OPENAI_API_KEY")).isEqualTo("sk-super-secret")
+
+        val reloaded = ConfigStore(tempFolder.root, cipher, ConsoleLogger())
+        assertThat(reloaded.get("OPENAI_API_KEY")).isEqualTo("sk-super-secret")
+    }
+
+    @Test
+    fun legacyPlaintextFile_isMigratedOnNextSave() {
+        File(tempFolder.root, "app_config.json")
+            .writeText(JSONObject().put("KEY", "secret").toString())
+
+        val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+        val cipher = AesGcmValueCipher(key)
+        val store = ConfigStore(tempFolder.root, cipher, ConsoleLogger())
+
+        assertThat(store.get("KEY")).isEqualTo("secret")
+
+        store.put("OTHER", "x")
+
+        val raw = File(tempFolder.root, "app_config.json").readText()
+        assertThat(raw).doesNotContain("secret")
     }
 }

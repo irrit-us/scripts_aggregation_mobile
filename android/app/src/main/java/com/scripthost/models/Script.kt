@@ -40,6 +40,7 @@ enum class Permission(val description: String, val dangerous: Boolean) {
     // Network
     INTERNET("Access internet", false),
     NETWORK_STATE("Check network state", false),
+    SSH("Connect to remote hosts via SSH", false),
 
     // Storage
     READ_STORAGE("Read files", false),

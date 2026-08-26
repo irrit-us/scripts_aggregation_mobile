@@ -47,12 +47,14 @@ Scripts are constrained by:
 
 Scripts can only access explicitly exposed APIs:
 
-- UI components (Button, Label, etc.)
+- UI components (Button, Label, Chart, etc.)
 - Network (HTTP GET/POST, with optional custom headers)
 - Config (configured API keys and settings, with permission)
 - Storage (app's private directory only)
 - Sensors (with permission)
 - Device info (non-sensitive only)
+- Notifications (Notify and Scheduler, with permission)
+- SSH (remote command execution, with permission)
 
 ## Permission System
 
@@ -68,6 +70,12 @@ Scripts can only access explicitly exposed APIs:
 - VIBRATE
 - NOTIFICATIONS
 - CONFIG (read configured API keys and settings)
+- SSH (connect to remote hosts via SSH)
+
+> On Android 13 (API 33) and above, `NOTIFICATIONS` maps to the
+> `POST_NOTIFICATIONS` runtime permission, so the system shows a consent
+> dialog the first time a script uses `Notify` or `Scheduler` even though the
+> permission is non-dangerous.
 
 **Dangerous Permissions** (require user consent):
 - LOCATION_FINE
@@ -87,14 +95,36 @@ Scripts can only access explicitly exposed APIs:
 
 ### Permission Enforcement
 
+Enforcement is a double gate: a sensitive operation only proceeds when the
+script **declared** the permission in its metadata **and** the system-level
+check passes. Every bridge (System, Config, Notification, SSH) is constructed
+with the running script's ID and verifies both conditions through
+`PermissionManager.hasScriptPermission(scriptId, permission)` before executing:
+
 ```kotlin
-// Example: Network access check
-if (!permissionManager.hasPermission(Permission.INTERNET)) {
-    throw SecurityException("Permission denied: INTERNET")
+// Example: Network access check inside a bridge
+if (!permissionManager.hasScriptPermission(scriptId, Permission.INTERNET)) {
+    throw SecurityException("Permission denied: INTERNET for script $scriptId")
 }
 ```
 
-All sensitive APIs perform permission checks before execution.
+For permissions backed by an Android runtime permission, the system-level half
+of the gate asks the OS as well — for example `NOTIFICATIONS` maps to
+`POST_NOTIFICATIONS` on Android 13 (API 33) and above, so the OS consent dialog
+must also have been accepted. All sensitive APIs perform these checks before
+execution.
+
+### Bridge-Specific Notes
+
+- **SSH**: every `SSH.*` call checks `Permission.SSH` before touching the
+  network. SSH credentials are supplied by the script at call time (for
+  example via `Config`) and are never persisted by the bridge; the session
+  lives only in memory while the script runs.
+- **Scheduled notifications**: `Scheduler.scheduleDaily` registers a native
+  WorkManager worker (`DailyNotificationWorker`) that posts the stored
+  title/message at the requested time. No script code executes in the
+  background, so a scheduled notification cannot be used to bypass the
+  sandbox or execution limits.
 
 ## Configuration Storage & API Keys
 
@@ -104,17 +134,21 @@ Scripts read configured API keys and settings through the `Config` bridge
 ### Storage Model
 
 - **Location**: `app_config.json` in the app's private files directory
-- **Format**: JSON object mapping string keys to string values
+- **Format**: JSON object mapping string keys to encrypted values
+  (AES-256-GCM ciphertext, Base64-encoded; see below)
 - **Access**: Read-only from scripts; managed from the Settings screen
 - **Scope**: Values are per-app, shared by all scripts
 
 ### Security Considerations
 
-- Values are stored in plaintext inside the app's private directory. The
-  Android app sandbox restricts access to the app itself on non-rooted
-  devices, but the file is not encrypted: extracted backups, debug builds,
-  or rooted devices can read it. Hardware-backed key storage is listed
-  under Future Improvements.
+- Values are encrypted at rest with AES-256-GCM (`AesGcmValueCipher`). The
+  encryption key is generated and held by the AndroidKeyStore
+  (`KeystoreKeyProvider`), so it never leaves the device's hardware-backed
+  keystore. Each value is encrypted with a fresh random 12-byte IV and stored
+  as `Base64(IV || ciphertext || GCM tag)`; the GCM tag also detects
+  tampering. Values written by older app versions as plaintext are migrated
+  transparently: they are read as-is once and re-saved encrypted on the next
+  save.
 - `CONFIG` is auto-granted (non-dangerous), so the effective control is
   trust at install time: only install scripts whose permission requests you
   have reviewed, and treat a script that requests `CONFIG` as able to read
@@ -221,15 +255,6 @@ For local scripts without signatures:
 - **Network Security**: HTTPS enforced for script downloads
 - **Storage Isolation**: Cannot access other apps' data
 
-### iOS Compliance
-
-For iOS version (future):
-
-- **No Dynamic Code Download**: Scripts bundled with app or user-imported
-- **App Store Guidelines**: Complies with 2.5.2 (software requirements)
-- **Sandbox**: iOS app sandbox enforced
-- **Entitlements**: Only necessary entitlements requested
-
 ## Best Practices for Script Authors
 
 ### Security Guidelines
@@ -306,15 +331,6 @@ If you discover a security vulnerability:
 3. **Social Engineering**: Cannot prevent user from granting permissions
 4. **Zero-Day Exploits**: V8 engine vulnerabilities possible
 
-### Future Improvements
-
-- [ ] Process isolation per script
-- [ ] Content Security Policy implementation
-- [ ] Automated malware scanning
-- [ ] Reputation system for script authors
-- [ ] Sandboxed rendering for untrusted content
-- [ ] Hardware-backed key storage
-
 ## Compliance
 
 ### Standards
@@ -323,11 +339,6 @@ If you discover a security vulnerability:
 - CWE/SANS Top 25 mitigation
 - Android Security Best Practices
 - GDPR data protection principles
-
-### Certifications
-
-- Planned: SOC 2 Type II
-- Planned: ISO 27001
 
 ## References
 

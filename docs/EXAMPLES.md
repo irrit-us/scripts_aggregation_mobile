@@ -205,6 +205,109 @@ Import ui_controls.js into ScriptHost and run it
 
 ---
 
+### 10. Monitor Port Chart (`monitor_port_chart.js`)
+
+**Description**: Polls a monitor endpoint every 5 seconds and renders a
+rolling line chart of the last 20 numeric samples. The line is green while
+the latest sample is below the configured threshold and red otherwise (and
+immediately red when a check fails).
+
+**Concepts Demonstrated**:
+- `Chart` widget (`new Chart("line")`, `setData`, `setLabels`, `setColor`)
+- Configuration interface (`Config.get`)
+- Polling with `setInterval` / `clearInterval`
+- Custom API calls with optional auth headers (`Network.get` with headers)
+- Threshold-based color changes and error handling
+
+**Permissions Required**: `CONFIG`, `INTERNET`
+
+**Usage**:
+```bash
+1. Open Settings and add MONITOR_URL (optionally MONITOR_API_KEY and
+   MONITOR_THRESHOLD, default 500)
+2. Import monitor_port_chart.js into ScriptHost
+3. Tap "Start Monitoring" to begin polling every 5 seconds
+4. Tap "Stop Monitoring" to pause
+```
+
+---
+
+### 11. Daily Fitness Reminder (`daily_fitness.js`)
+
+**Description**: Shows a fitness tip for today and schedules a daily 8:00
+notification with that tip. A preview button posts the notification
+immediately.
+
+**Concepts Demonstrated**:
+- `Scheduler.scheduleDaily` / `Scheduler.cancel` for WorkManager-backed
+  daily notifications
+- `Notify.post` for immediate notifications
+- `NOTIFICATIONS` permission (runtime dialog on Android 13+)
+- Error handling with try-catch around bridge calls
+
+**Permissions Required**: `NOTIFICATIONS`
+
+**Usage**:
+```bash
+1. Import daily_fitness.js into ScriptHost
+2. Grant the notification permission when prompted
+3. Tap "Enable daily 8:00 reminder" to schedule
+4. Tap "Preview notification" to post the tip immediately
+5. Tap "Disable reminder" to cancel the schedule
+```
+
+---
+
+### 12. Stock Trends (`stock_trends.js`)
+
+**Description**: Loads daily closing prices for a stock symbol and renders
+them as a line chart - green when the window ends up, red when it ends down.
+
+**Concepts Demonstrated**:
+- `Chart` widget with dynamic data and colors
+- Configuration interface (`Config.get`) with a `{symbol}` URL placeholder
+- Custom API calls with optional bearer token (`Network.get` with headers)
+- Flexible JSON response parsing (arrays of numbers, objects, or `closes`)
+- Percent-change computation and error handling
+
+**Permissions Required**: `CONFIG`, `INTERNET`
+
+**Usage**:
+```bash
+1. Open Settings and add STOCK_API_URL containing a "{symbol}" placeholder
+   (optionally STOCK_API_KEY sent as a Bearer token)
+2. Import stock_trends.js into ScriptHost
+3. Enter a symbol (e.g. AAPL) and tap "Load"
+```
+
+---
+
+### 13. Remote tmux Console (`tmux_remote.js`)
+
+**Description**: Connects to a host over SSH and runs tmux commands -
+`tmux ls`, `tmux capture-pane -p`, or any custom command - showing the
+output in a scrollable console.
+
+**Concepts Demonstrated**:
+- `SSH.connect` / `SSH.exec` / `SSH.disconnect` session workflow
+- `SSH` permission gating
+- Configuration interface (`Config.get`) for connection settings
+- Scrollable console output with `ScrollView` + `Label`
+- Callback error handling for connect and exec
+
+**Permissions Required**: `CONFIG`, `SSH`
+
+**Usage**:
+```bash
+1. Open Settings and add TMUX_HOST, TMUX_PORT, TMUX_USER and TMUX_PASSWORD
+2. Import tmux_remote.js into ScriptHost
+3. Tap "Connect", then "List sessions", "Capture pane", or enter a custom
+   command and tap "Run"
+4. Tap "Disconnect" when done
+```
+
+---
+
 ## Creating Your Own Scripts
 
 ### Basic Template

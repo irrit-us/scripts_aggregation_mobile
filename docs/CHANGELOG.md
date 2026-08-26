@@ -51,6 +51,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   docs/PROJECT_SUMMARY.md)
 - Documentation reorganized under `docs/` per standard conventions;
   `README.md` and `LICENSE` remain at the repository root
+- Bridges now enforce per-script permissions: every capability check requires
+  the permission to be declared by the running script AND granted at the
+  system level (`PermissionManager.hasScriptPermission`)
+- `ConfigStore` values are encrypted at rest (AES-256-GCM with a per-value IV,
+  key managed by AndroidKeyStore); legacy plaintext values migrate on next save
+- `printStackTrace` replaced by an injectable `Logger`
+  (`AndroidLogger` / `ConsoleLogger`)
+- README: development roadmap and cross-platform claims removed; project
+  structure and technology stack synced with the actual repository
+
+### Removed
+- Development-process documents (roadmap/status artifacts): `docs/STATUS.md`,
+  `docs/TEST_REPORT.md`, `docs/FINAL_SUMMARY.md`, `docs/PROJECT_SUMMARY.md`,
+  `docs/deep-research-report.md`
+- Unused `androidx.security:security-crypto` dependency
 
 ### Added
 - Expanded native UI bridge with new components: `CheckBox`, `Spinner`,
@@ -94,6 +109,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Example scripts: `agent_conversation.js` (wrapped agent conversation) and
   `server_monitor.js` (server health monitoring)
 - `ConfigStoreTest` unit tests (8 tests)
+- `Chart` UI widget (line/bar, custom colors, axis labels) — dependency-free
+  `SimpleChartView`
+- `Notify.post(...)` and `Scheduler.scheduleDaily(...)` / `Scheduler.cancel(...)`
+  bridges backed by a WorkManager daily worker (POST_NOTIFICATIONS runtime
+  permission handled on API 33+)
+- `SSH` bridge (`connect` / `exec` / `disconnect`) over JSch, gated by the new
+  `SSH` script permission
+- Example scripts: `monitor_port_chart.js`, `daily_fitness.js`,
+  `stock_trends.js`, `tmux_remote.js`
+- Test stack: Robolectric, Truth, mockito-kotlin, WorkManager Test; new suites
+  for PermissionManager, NotificationBridge, DailyNotificationWorker,
+  SimpleChartView, and AesGcmValueCipher; existing suites modernized
 
 ### Security
 - Sandbox isolation for script execution
@@ -105,16 +132,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and settings)
 - `docs/SECURITY.md` documents the Config storage model, API-key handling,
   and updated permission/API whitelist
-
-## [1.0.0] - TBD
-
-### Planned
-- First stable release
-- iOS implementation
-- Script marketplace
-- Additional UI components
-- Performance optimizations
-- Internationalization
+- Per-script permission enforcement: bridges call
+  `PermissionManager.hasScriptPermission(scriptId, permission)`, so a
+  capability requires both a script declaration and a system-level grant
+- Config values encrypted at rest (AES-256-GCM, AndroidKeyStore-managed key);
+  `NOTIFICATIONS` maps to the `POST_NOTIFICATIONS` runtime permission on
+  API 33+; SSH credentials are supplied by scripts and never persisted
 
 ## Version History
 
