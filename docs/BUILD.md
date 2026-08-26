@@ -97,6 +97,10 @@ keyAlias=scripthost
 keyPassword=your_key_password
 ```
 
+The release build reads this file via `signingConfigs.release` in
+`android/app/build.gradle.kts`. The file is gitignored; when it is absent the
+release build still succeeds but produces an **unsigned** APK.
+
 #### Build Release APK
 
 ```bash

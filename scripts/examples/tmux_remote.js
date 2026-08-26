@@ -1,4 +1,4 @@
-// Example: Remote tmux Console
+// Example 13: Remote tmux Console
 // Connects to a host over SSH and runs tmux commands, showing the output
 // in a scrollable console. Configure TMUX_HOST, TMUX_PORT, TMUX_USER and
 // TMUX_PASSWORD in Settings before connecting.

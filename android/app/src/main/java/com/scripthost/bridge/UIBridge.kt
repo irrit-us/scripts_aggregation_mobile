@@ -36,6 +36,10 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * All V8 access happens on the main thread (J2V8 thread affinity); view
  * mutation is marshaled through [onUiThread].
+ *
+ * The constructor's [rootView] acts as a page HOST: the bridge stacks full-size
+ * page containers inside it and always shows exactly one page (the top of the
+ * stack). [addView]/[removeView]/[clearViews] target the current page.
  */
 class UIBridge(private val context: Context, private val rootView: ViewGroup) : ScriptBridge {
 
@@ -52,6 +56,19 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     private var nextViewId = 1000
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /** Stack of pages hosted by [rootView]; the bottom entry is the root page. */
+    private val pageStack = java.util.ArrayDeque<LinearLayout>()
+
+    /** The page script UI currently lands in (top of the stack). */
+    private val currentPage: LinearLayout?
+        get() = pageStack.peek()
+
+    init {
+        val rootPage = createPage()
+        onUiThread { rootView.addView(rootPage) }
+        pageStack.push(rootPage)
+    }
+
     override fun register(runtime: V8) {
         this.runtime = runtime
 
@@ -63,6 +80,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         uiObject.registerJavaMethod(this, "addView", "addView", arrayOf(V8Object::class.java))
         uiObject.registerJavaMethod(this, "removeView", "removeView", arrayOf(Int::class.java))
         uiObject.registerJavaMethod(this, "clearViews", "clearViews", emptyArray())
+        uiObject.registerJavaMethod(this, "pushPage", "pushPage", emptyArray())
+        uiObject.registerJavaMethod(this, "popPage", "popPage", emptyArray())
+        uiObject.registerJavaMethod(this, "pageDepth", "pageDepth", emptyArray())
         uiObject.registerJavaMethod(this, "setRootBackgroundColor", "setBackgroundColor",
             arrayOf(String::class.java))
 
@@ -103,6 +123,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         viewRegistry.clear()
         viewStyles.clear()
         textStates.clear()
+        pageStack.clear()
         runtime = null
     }
 
@@ -1049,7 +1070,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     // ------------------------------------------------------------------
 
     /**
-     * Add view to root container. Reparents the view if it is already
+     * Add view to the current page. Reparents the view if it is already
      * attached elsewhere.
      */
     @Suppress("unused")
@@ -1059,36 +1080,82 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
 
         onUiThread {
             (view.parent as? ViewGroup)?.removeView(view)
-            rootView.addView(view)
+            currentPage?.addView(view)
         }
     }
 
     /**
-     * Remove view from container.
+     * Remove view from the current page.
      */
     @Suppress("unused")
     fun removeView(viewId: Int) {
         val view = viewRegistry[viewId] ?: return
 
         onUiThread {
-            rootView.removeView(view)
+            currentPage?.removeView(view)
         }
 
         viewRegistry.remove(viewId)
     }
 
     /**
-     * Clear all views.
+     * Clear all views on the current page.
      */
     @Suppress("unused")
     fun clearViews() {
         onUiThread {
-            rootView.removeAllViews()
+            currentPage?.removeAllViews()
         }
         viewRegistry.clear()
         viewStyles.clear()
         textStates.clear()
     }
+
+    /**
+     * Push a new page onto the stack. The host shows exactly one page at a
+     * time, so the previous page is detached (kept alive) and the new empty
+     * page becomes the current page. Returns the new page depth.
+     */
+    fun pushPage(): Int {
+        val newPage = createPage()
+        onUiThread {
+            currentPage?.let { rootView.removeView(it) }
+            rootView.addView(newPage)
+        }
+        pageStack.push(newPage)
+        return pageStack.size
+    }
+
+    /**
+     * Pop the current page, re-attaching the page below it to the host.
+     * Views that lived on the dropped page are unregistered. Returns false
+     * (and does nothing) when already at the root page.
+     */
+    fun popPage(): Boolean {
+        if (pageStack.size <= 1) return false
+        val dropped = pageStack.pop()
+        val restored = pageStack.peek()
+        onUiThread {
+            rootView.removeView(dropped)
+            if (restored != null && restored.parent !== rootView) {
+                rootView.addView(restored)
+            }
+        }
+        val staleIds = viewRegistry.entries
+            .filter { isContainedIn(it.value, dropped) }
+            .map { it.key }
+        for (id in staleIds) {
+            viewRegistry.remove(id)
+            viewStyles.remove(id)
+            textStates.remove(id)
+        }
+        return true
+    }
+
+    /**
+     * Current page depth; 1 means only the root page exists.
+     */
+    fun pageDepth(): Int = pageStack.size
 
     /**
      * Set the background color of the root container.
@@ -1267,6 +1334,29 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = nextViewId++
         viewRegistry[viewId] = view
         return viewId
+    }
+
+    /** Create a full-size vertical page container, on the UI thread. */
+    private fun createPage(): LinearLayout {
+        return onUiThread {
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+        }
+    }
+
+    /** True if [view] is [container] itself or nested somewhere inside it. */
+    private fun isContainedIn(view: View, container: ViewGroup): Boolean {
+        var node: View? = view
+        while (node != null) {
+            if (node === container) return true
+            node = node.parent as? View
+        }
+        return false
     }
 
     private fun parseColor(colorString: String): Int {

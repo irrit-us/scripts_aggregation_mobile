@@ -247,6 +247,21 @@ class SystemBridge(
     // Storage API
 
     /**
+     * Resolve [name] against the app's private files directory, rejecting any
+     * path that escapes it (e.g. `../foo` or absolute paths). Returns null for
+     * out-of-bounds paths so callers fail closed like a permission denial.
+     */
+    private fun confinedFile(name: String): File? {
+        return try {
+            val base = context.filesDir.canonicalFile
+            val file = File(base, name).canonicalFile
+            if (file == base || file.path.startsWith(base.path + File.separator)) file else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
      * Read file from app's private storage
      */
     @Suppress("unused")
@@ -256,7 +271,7 @@ class SystemBridge(
         }
 
         return try {
-            val file = File(context.filesDir, filename)
+            val file = confinedFile(filename) ?: return null
             if (file.exists()) file.readText() else null
         } catch (e: Exception) {
             null
@@ -273,7 +288,7 @@ class SystemBridge(
         }
 
         return try {
-            val file = File(context.filesDir, filename)
+            val file = confinedFile(filename) ?: return false
             file.writeText(content)
             true
         } catch (e: Exception) {
@@ -291,7 +306,7 @@ class SystemBridge(
         }
 
         return try {
-            val file = File(context.filesDir, filename)
+            val file = confinedFile(filename) ?: return false
             file.delete()
         } catch (e: Exception) {
             false
@@ -309,7 +324,7 @@ class SystemBridge(
         val runtime = this.runtime ?: return null
 
         return try {
-            val dir = File(context.filesDir, directory)
+            val dir = confinedFile(directory) ?: return null
             val files = dir.listFiles() ?: emptyArray()
 
             val array = V8Array(runtime)

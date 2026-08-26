@@ -226,4 +226,37 @@ class ScriptManagerTest {
         assertThat(script).isNotNull()
         assertThat(script?.sourceCode).isEqualTo("console.log('hello');")
     }
+
+    @Test
+    fun corruptMetadataFile_constructsWithNoScripts() {
+        // Garbage bytes written before the manager is constructed; the manager
+        // must tolerate the corrupt metadata and start empty.
+        File(tempFolder.root, "scripts_metadata.json").writeText("{ not valid json !!!")
+
+        val manager = ScriptManager(tempFolder.root, logger = ConsoleLogger())
+
+        assertThat(manager.getAllScripts()).isEmpty()
+    }
+
+    @Test
+    fun exportScript_unknownId_returnsNull() {
+        assertThat(scriptManager.exportScript("unknown-id")).isNull()
+    }
+
+    @Test
+    fun uninstallScript_unknownId_completesWithoutThrowing() = runBlocking {
+        // Current implementation removes nothing, deletes a non-existent file,
+        // saves metadata, and still reports success.
+        assertThat(scriptManager.uninstallScript("unknown-id")).isTrue()
+    }
+
+    @Test
+    fun installScriptFromFile_invalidJsonPackage_fails() = runBlocking {
+        val scriptFile = File(tempFolder.root, "broken.json")
+        scriptFile.writeText("{invalid json")
+
+        val result = scriptManager.installScriptFromFile(scriptFile, verifySignature = false)
+
+        assertThat(result is InstallResult.Failure).isTrue()
+    }
 }

@@ -158,6 +158,13 @@ class IntegrationTester:
             print(f"  [FAIL] UI.addView() not found")
             return False
 
+        # Check for sub-screen page stack
+        if 'pushPage' in content:
+            print(f"  [OK] UI.pushPage() implemented")
+        else:
+            print(f"  [FAIL] UI.pushPage() not found")
+            return False
+
         return found >= 4  # At least 4 components
 
     def test_system_bridge(self) -> bool:
@@ -453,6 +460,7 @@ class IntegrationTester:
             ("daily_fitness.js", ['Scheduler.scheduleDaily', 'Notify.post']),
             ("stock_trends.js", ['Network.get', 'new Chart']),
             ("tmux_remote.js", ['SSH.connect', 'SSH.exec']),
+            ("sub_screens.js", ['UI.pushPage', 'UI.popPage']),
         ]
 
         for filename, patterns in examples:

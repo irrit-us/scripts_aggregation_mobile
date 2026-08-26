@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import com.scripthost.TestApplication
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
 import org.junit.Before
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference
  * permission checks, including the API 33+ notification runtime permission.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(application = TestApplication::class)
 class PermissionManagerTest {
 
     private lateinit var application: Application

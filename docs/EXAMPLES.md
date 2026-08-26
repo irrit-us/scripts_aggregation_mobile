@@ -308,6 +308,29 @@ output in a scrollable console.
 
 ---
 
+### 14. Sub-Screens (`sub_screens.js`)
+
+**Description**: Master/detail demo using the page stack. Tapping an item
+pushes a detail page; a Back button (or the device back button) pops it
+again. A depth indicator shows the current stack depth.
+
+**Concepts Demonstrated**:
+- Sub-screen navigation with `UI.pushPage()` / `UI.popPage()`
+- Tracking the page stack with `UI.pageDepth()`
+- View destruction on pop (detail-page handles become invalid)
+- Device back button popping a page before closing the script
+
+**Permissions Required**: None
+
+**Usage**:
+```bash
+Import sub_screens.js into ScriptHost and run it
+Tap an item to push its detail page
+Tap "Back" (or the device back button) to pop it
+```
+
+---
+
 ## Creating Your Own Scripts
 
 ### Basic Template

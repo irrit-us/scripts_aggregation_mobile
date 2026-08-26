@@ -1,4 +1,4 @@
-// Example: Monitor Port Chart
+// Example 10: Monitor Port Chart
 // Polls a monitor endpoint every 5 seconds and renders a rolling line chart
 // of the last 20 numeric values. Green line while below the threshold,
 // red otherwise; red immediately when the check fails (DOWN).

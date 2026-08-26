@@ -2,6 +2,7 @@ package com.scripthost.ui
 
 import android.os.Bundle
 import android.widget.*
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.scripthost.ScriptHostApplication
@@ -24,7 +25,7 @@ class ScriptRuntimeActivity : AppCompatActivity() {
 
     private val logger = AndroidLogger()
 
-    private lateinit var scriptContainer: LinearLayout
+    private lateinit var scriptContainer: FrameLayout
     private lateinit var consoleOutput: TextView
     private lateinit var stopButton: Button
 
@@ -34,10 +35,23 @@ class ScriptRuntimeActivity : AppCompatActivity() {
 
     private var scriptEngine: JavaScriptEngine? = null
     private var scriptContext: ScriptContext? = null
+    private var uiBridge: UIBridge? = null
+
+    /** Back pops a script page first; only at the root page does it finish. */
+    private val backCallback = object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+            val bridge = uiBridge
+            if (bridge == null || !bridge.popPage()) {
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupUI()
+        onBackPressedDispatcher.addCallback(this, backCallback)
 
         val scriptId = intent.getStringExtra("SCRIPT_ID")
         if (scriptId != null) {
@@ -53,9 +67,8 @@ class ScriptRuntimeActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
         }
 
-        // Script container (where UI components are added)
-        scriptContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // Page host for script UI (UIBridge stacks pages inside it)
+        scriptContainer = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -146,6 +159,7 @@ class ScriptRuntimeActivity : AppCompatActivity() {
                 // Register bridges
                 val scriptId = context.script.id
                 val uiBridge = UIBridge(this@ScriptRuntimeActivity, scriptContainer)
+                this@ScriptRuntimeActivity.uiBridge = uiBridge
                 val systemBridge = SystemBridge(this@ScriptRuntimeActivity, permissionManager, scriptId)
                 val configBridge = ConfigBridge(app.configStore, permissionManager, scriptId)
                 val notificationBridge = NotificationBridge(this@ScriptRuntimeActivity, permissionManager, scriptId)

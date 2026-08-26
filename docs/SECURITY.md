@@ -238,7 +238,9 @@ For local scripts without signatures:
 **Scenario 4: File System Access**
 - **Attack**: Script tries to read sensitive files
 - **Defense**: Storage API limited to app's private directory
-- **Result**: Cannot access files outside sandbox
+- **Result**: Cannot access files outside sandbox; storage paths are
+  canonically confined to `filesDir`, so path traversal (`../` escapes and
+  absolute paths outside `filesDir`) is rejected
 
 **Scenario 5: Code Injection**
 - **Attack**: Attacker modifies script after installation

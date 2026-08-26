@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.Application
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
@@ -11,6 +12,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.google.common.truth.Truth.assertThat
+import com.scripthost.TestApplication
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
 import com.scripthost.security.PermissionManager
@@ -28,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
  * scheduling/cancelling of daily notification work via WorkManager.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = TestApplication::class)
 class NotificationBridgeTest {
 
     private lateinit var application: Application
@@ -53,12 +55,13 @@ class NotificationBridgeTest {
 
         val shadowNotificationManager =
             shadowOf(application.getSystemService(NotificationManager::class.java))
-        assertThat(shadowNotificationManager.postedNotifications).hasSize(1)
-        val posted = shadowNotificationManager.postedNotifications[0]
+        assertThat(shadowNotificationManager.allNotifications).hasSize(1)
+        val posted = shadowNotificationManager.allNotifications[0]
         assertThat(posted.extras.getString(Notification.EXTRA_TITLE)).isEqualTo("Hello")
         assertThat(posted.extras.getString(Notification.EXTRA_TEXT)).isEqualTo("World")
-        assertThat(shadowNotificationManager.getNotificationChannel("scripthost_scripts"))
-            .isNotNull()
+        val channelIds = shadowNotificationManager.notificationChannels
+            .map { (it as NotificationChannel).id }
+        assertThat(channelIds).contains("scripthost_scripts")
     }
 
     @Test
@@ -70,7 +73,7 @@ class NotificationBridgeTest {
 
         val shadowNotificationManager =
             shadowOf(application.getSystemService(NotificationManager::class.java))
-        assertThat(shadowNotificationManager.postedNotifications).isEmpty()
+        assertThat(shadowNotificationManager.allNotifications).isEmpty()
     }
 
     @Test

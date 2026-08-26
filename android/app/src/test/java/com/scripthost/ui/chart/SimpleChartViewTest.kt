@@ -6,16 +6,19 @@ import android.graphics.Color
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import com.scripthost.TestApplication
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Unit tests for [SimpleChartView] covering property round-trips and
  * crash-safety of [SimpleChartView.onDraw] for edge-case data sets.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(application = TestApplication::class)
 class SimpleChartViewTest {
 
     private lateinit var view: SimpleChartView

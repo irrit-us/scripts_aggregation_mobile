@@ -1,4 +1,4 @@
-// Example: Daily Fitness Reminder
+// Example 11: Daily Fitness Reminder
 // Shows a fitness tip for today and schedules a daily 8:00 notification
 // with that tip via Scheduler; can also preview the notification instantly.
 

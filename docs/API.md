@@ -395,12 +395,27 @@ UI.addView(chart);
 
 ## UI Namespace
 
-The global `UI` object manages the root container.
+The global `UI` object manages the root container and the script's page stack.
+
+### Page Model (Sub-Screens)
+
+Each script owns a stack of pages. The stack always starts with a single root
+page (depth 1), and `UI.pushPage()` pushes additional pages on top of it to
+build sub-screens such as master/detail flows:
+
+- `UI.addView()` always targets the **top** page of the stack; only the top
+  page is visible in the runtime activity.
+- Popping a page destroys every view created on it — their handles become
+  invalid and must not be reused.
+- The device back button pops the top page first; the script only closes when
+  back is pressed at the root page (depth 1).
+- Single-page scripts are unaffected: if `UI.pushPage()` is never called,
+  `UI.addView()` targets the root page exactly as before.
 
 ### UI.addView(view)
 
-Add a view to the main container. If the view is already attached to another
-container it is reparented automatically.
+Add a view to the top page of the page stack. If the view is already attached
+to another container it is reparented automatically.
 
 ```javascript
 UI.addView(button);
@@ -429,6 +444,59 @@ Set the background color of the root container.
 ```javascript
 UI.setBackgroundColor("#ECEFF1");
 ```
+
+### UI.pushPage()
+
+Push a new empty page onto the script's page stack. The new page becomes the
+target of subsequent `UI.addView()` calls and is the only page visible in the
+runtime activity.
+
+**Returns:** The new stack depth (number)
+
+```javascript
+let depth = UI.pushPage();
+UI.addView(new Label("Detail page, depth " + depth));
+```
+
+### UI.popPage()
+
+Pop the top page off the script's page stack. All views created on the popped
+page are destroyed and their handles become invalid.
+
+**Returns:** `true` when a page was popped; `false` at the root page
+(depth 1), in which case nothing changes
+
+```javascript
+let popped = UI.popPage();
+if (!popped) {
+    showToast("Already at the root page");
+}
+```
+
+### UI.pageDepth()
+
+Get the current page stack depth.
+
+**Returns:** Stack depth (number); `1` is the root page
+
+```javascript
+console.log("Depth: " + UI.pageDepth());
+```
+
+**Example (master/detail):**
+```javascript
+let list = new ListView();
+list.setItems(["Inbox", "Calendar", "Settings"]);
+list.setOnItemTap(function(index) {
+    UI.pushPage();
+    let back = new Button("Back");
+    back.setOnTap(function() { UI.popPage(); });
+    UI.addView(back);
+});
+UI.addView(list);
+```
+
+See `scripts/examples/sub_screens.js` for a complete demo.
 
 ---
 
@@ -597,7 +665,10 @@ for (let i = 0; i < keys.length; i++) {
 
 ## Storage API
 
-All storage operations use the app's private storage directory.
+All storage operations use the app's private storage directory. Filenames are
+confined to that directory via canonical-path checking: `../` traversal
+sequences and absolute paths outside the app's private directory are rejected
+(the call fails closed with `null`/`false`, the same as a permission denial).
 
 ### Storage.readFile(filename)
 

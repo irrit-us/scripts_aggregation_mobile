@@ -1,0 +1,95 @@
+package com.scripthost.bridge
+
+import android.content.Context
+import android.os.Looper
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import androidx.test.core.app.ApplicationProvider
+import com.google.common.truth.Truth.assertThat
+import com.scripthost.TestApplication
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+
+/**
+ * Unit tests for [UIBridge] page-stack behavior (pushPage/popPage/pageDepth).
+ * The bridge is constructed without register(), so no V8 runtime is involved.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(application = TestApplication::class)
+class UIBridgeTest {
+
+    private lateinit var host: FrameLayout
+    private lateinit var bridge: UIBridge
+
+    @Before
+    fun setUp() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        host = FrameLayout(context)
+        bridge = UIBridge(context, host)
+        shadowOf(Looper.getMainLooper()).idle()
+    }
+
+    @Test
+    fun initialState_hostContainsOnlyRootPage() {
+        assertThat(host.childCount).isEqualTo(1)
+        assertThat(host.getChildAt(0)).isInstanceOf(LinearLayout::class.java)
+        assertThat(bridge.pageDepth()).isEqualTo(1)
+    }
+
+    @Test
+    fun pushPage_swapsHostChildAndIncreasesDepth() {
+        val rootPage = host.getChildAt(0)
+
+        assertThat(bridge.pushPage()).isEqualTo(2)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(host.childCount).isEqualTo(1)
+        assertThat(host.getChildAt(0)).isNotSameInstanceAs(rootPage)
+        assertThat(bridge.pageDepth()).isEqualTo(2)
+
+        val secondPage = host.getChildAt(0)
+        assertThat(bridge.pushPage()).isEqualTo(3)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(host.childCount).isEqualTo(1)
+        assertThat(host.getChildAt(0)).isNotSameInstanceAs(secondPage)
+        assertThat(bridge.pageDepth()).isEqualTo(3)
+    }
+
+    @Test
+    fun popPage_restoresPreviousPage() {
+        val rootPage = host.getChildAt(0)
+        bridge.pushPage()
+        val secondPage = host.getChildAt(0)
+        bridge.pushPage()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(bridge.popPage()).isTrue()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertThat(host.childCount).isEqualTo(1)
+        assertThat(host.getChildAt(0)).isSameInstanceAs(secondPage)
+        assertThat(bridge.pageDepth()).isEqualTo(2)
+
+        assertThat(bridge.popPage()).isTrue()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertThat(host.childCount).isEqualTo(1)
+        assertThat(host.getChildAt(0)).isSameInstanceAs(rootPage)
+        assertThat(bridge.pageDepth()).isEqualTo(1)
+    }
+
+    @Test
+    fun popPage_atRoot_returnsFalseAndKeepsChild() {
+        val rootPage = host.getChildAt(0)
+
+        assertThat(bridge.popPage()).isFalse()
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertThat(bridge.pageDepth()).isEqualTo(1)
+        assertThat(host.childCount).isEqualTo(1)
+        assertThat(host.getChildAt(0)).isSameInstanceAs(rootPage)
+    }
+}

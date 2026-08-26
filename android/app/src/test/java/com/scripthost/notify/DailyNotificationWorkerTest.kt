@@ -2,12 +2,14 @@ package com.scripthost.notify
 
 import android.app.Application
 import android.app.Notification
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Data
 import androidx.work.ListenableWorker.Result
-import androidx.work.testing.TestWorkerBuilder
+import androidx.work.testing.TestListenableWorkerBuilder
 import com.google.common.truth.Truth.assertThat
+import com.scripthost.TestApplication
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,7 +22,7 @@ import org.robolectric.annotation.Config
  * results in a posted notification and missing input data fails the work.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
+@Config(sdk = [28], application = TestApplication::class)
 class DailyNotificationWorkerTest {
 
     private lateinit var application: Application
@@ -36,35 +38,38 @@ class DailyNotificationWorkerTest {
             .putString(DailyNotificationWorker.KEY_TITLE, "Daily Reminder")
             .putString(DailyNotificationWorker.KEY_MESSAGE, "Time to run your script")
             .build()
-        val worker = TestWorkerBuilder<DailyNotificationWorker>(
-            application,
-            inputData = inputData
-        ).build()
+        val worker = TestListenableWorkerBuilder
+            .from(application, DailyNotificationWorker::class.java)
+            .setInputData(inputData)
+            .build()
 
         val result = worker.doWork()
 
         assertThat(result).isEqualTo(Result.success())
         val shadowNotificationManager =
             shadowOf(application.getSystemService(NotificationManager::class.java))
-        assertThat(shadowNotificationManager.postedNotifications).hasSize(1)
-        val posted = shadowNotificationManager.postedNotifications[0]
+        assertThat(shadowNotificationManager.allNotifications).hasSize(1)
+        val posted = shadowNotificationManager.allNotifications[0]
         assertThat(posted.extras.getString(Notification.EXTRA_TITLE))
             .isEqualTo("Daily Reminder")
         assertThat(posted.extras.getString(Notification.EXTRA_TEXT))
             .isEqualTo("Time to run your script")
-        assertThat(shadowNotificationManager.getNotificationChannel("scripthost_scheduled"))
-            .isNotNull()
+        val channelIds = shadowNotificationManager.notificationChannels
+            .map { (it as NotificationChannel).id }
+        assertThat(channelIds).contains("scripthost_scheduled")
     }
 
     @Test
     fun doWork_withoutInputData_fails() {
-        val worker = TestWorkerBuilder<DailyNotificationWorker>(application).build()
+        val worker = TestListenableWorkerBuilder
+            .from(application, DailyNotificationWorker::class.java)
+            .build()
 
         val result = worker.doWork()
 
         assertThat(result).isEqualTo(Result.failure())
         val shadowNotificationManager =
             shadowOf(application.getSystemService(NotificationManager::class.java))
-        assertThat(shadowNotificationManager.postedNotifications).isEmpty()
+        assertThat(shadowNotificationManager.allNotifications).isEmpty()
     }
 }

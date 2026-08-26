@@ -119,6 +119,7 @@ check_file "scripts/examples/monitor_port_chart.js" "Monitor port chart example"
 check_file "scripts/examples/daily_fitness.js" "Daily fitness reminder example"
 check_file "scripts/examples/stock_trends.js" "Stock trends example"
 check_file "scripts/examples/tmux_remote.js" "Remote tmux console example"
+check_file "scripts/examples/sub_screens.js" "Sub-screens example"
 echo ""
 
 echo "Checking Tests..."
@@ -134,6 +135,9 @@ check_file "android/app/src/test/java/com/scripthost/ui/chart/SimpleChartViewTes
 check_file "android/app/src/test/java/com/scripthost/ui/chart/ChartScaleTest.kt" "Chart scale tests"
 check_file "android/app/src/test/java/com/scripthost/notify/NextRunCalculatorTest.kt" "Next run calculator tests"
 check_file "android/app/src/test/java/com/scripthost/ssh/SSHSessionManagerTest.kt" "SSH session manager tests"
+check_file "android/app/src/test/java/com/scripthost/bridge/UIBridgeTest.kt" "UI bridge tests"
+check_file "android/app/src/test/java/com/scripthost/bridge/SystemBridgeTest.kt" "System bridge tests"
+check_file "android/app/src/test/java/com/scripthost/bridge/ConfigBridgeTest.kt" "Config bridge tests"
 echo ""
 
 echo "========================================="

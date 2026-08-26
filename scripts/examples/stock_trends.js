@@ -1,4 +1,4 @@
-// Example: Stock Trends
+// Example 12: Stock Trends
 // Loads daily closing prices for a stock symbol and renders them as a
 // line chart. Green when the window ends up, red when it ends down.
 // Configure STOCK_API_URL with a "{symbol}" placeholder in Settings

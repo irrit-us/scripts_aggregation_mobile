@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   responses are now surfaced as errors
 - Stale claims about a 50MB memory limit removed (heap statistics are not
   exposed by J2V8 6.2.1; only the 30-second execution timeout is enforced)
+- Storage path traversal now rejected: filenames are confined to the app's
+  private `filesDir` via canonical-path checking (`../` escapes and absolute
+  paths outside `filesDir` fail closed with `null`/`false`)
 
 ### Changed
 - `ScriptManager` now takes an injectable storage directory (plus a `Context`
@@ -121,6 +124,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test stack: Robolectric, Truth, mockito-kotlin, WorkManager Test; new suites
   for PermissionManager, NotificationBridge, DailyNotificationWorker,
   SimpleChartView, and AesGcmValueCipher; existing suites modernized
+- Sub-screen page stack on the `UI` namespace: `UI.pushPage()` /
+  `UI.popPage()` / `UI.pageDepth()`; the device back button pops a page first
+  and only closes the script at the root page; single-page scripts are
+  unaffected
+- Example script `sub_screens.js` (master/detail sub-screen navigation demo)
+- New test suites `UIBridgeTest` (4 tests), `SystemBridgeTest` (10 tests),
+  `ConfigBridgeTest` (3 tests), and 4 new `ScriptManagerTest` cases (corrupt
+  metadata recovery, export unknown id, uninstall unknown id, malformed JSON
+  package) — 105 JVM/Robolectric tests total
 
 ### Security
 - Sandbox isolation for script execution

@@ -1,6 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application") version "8.2.0"
     kotlin("android") version "1.9.20"
+}
+
+// Release signing credentials live in keystore.properties (gitignored).
+// When the file is absent the release build falls back to an unsigned APK.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -17,6 +28,15 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storePassword = keystoreProperties.getProperty("storePassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -24,12 +44,18 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // java.util.Base64 (used by AesGcmValueCipher) requires API 26+;
+        // desugaring backports it for minSdk 24
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -47,6 +73,9 @@ android {
 }
 
 dependencies {
+    // Core library desugaring (java.util.Base64 etc. on API 24/25)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
     // AndroidX Core
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
