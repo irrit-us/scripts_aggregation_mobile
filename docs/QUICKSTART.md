@@ -88,6 +88,10 @@ SAM includes 18 example scripts covering every exposed API:
 16. **Scheduled Notifications** - One-shot and daily scheduled alerts
 17. **Device Info** - Read-only system/device information
 18. **Metronome** - Audio metronome demo
+19. **Guide** - the onboarding guide (auto-installed and run on first launch)
+
+On the very first launch SAM quietly installs the **Guide** script and runs
+it, walking you through the drawer, gestures, settings, and the script APIs.
 
 To try an example, tap "+" below the drawer script list and choose
 "Built-in Examples" — pick one from the list and it installs instantly

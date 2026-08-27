@@ -157,6 +157,36 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         }
 
         handleViewIntent(intent)
+
+        installGuideOnFirstLaunch()
+    }
+
+    /**
+     * On the very first launch, quietly install the bundled guide script and
+     * run it, so a new user lands on working onboarding content instead of an
+     * empty list. The flag lives in its own prefs file and is also set on
+     * failure so a broken install does not retry every launch.
+     */
+    private fun installGuideOnFirstLaunch() {
+        val prefs = getSharedPreferences(PREFS_APP_STATE, MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_GUIDE_INSTALLED, false)) return
+
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val dest = File(File(filesDir, "imports").apply { mkdirs() }, GUIDE_EXAMPLE_FILE)
+                    assets.open("$BUILTIN_EXAMPLES_DIR/$GUIDE_EXAMPLE_FILE").use { input ->
+                        dest.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    scriptManager.installScriptFromFile(dest, verifySignature = false)
+                } catch (e: Exception) {
+                    InstallResult.Failure(e.message ?: "guide install failed")
+                }
+            }
+            prefs.edit().putBoolean(KEY_GUIDE_INSTALLED, true).apply()
+            loadScripts()
+            (result as? InstallResult.Success)?.let { runScript(it.script) }
+        }
     }
 
     /**
@@ -692,6 +722,13 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
         /** Bundled agent-chat example; needs API keys configured in Settings. */
         private const val AGENT_EXAMPLE_FILE = "agent_conversation.js"
+
+        /** Bundled onboarding guide, auto-installed and run on first launch. */
+        private const val GUIDE_EXAMPLE_FILE = "guide.js"
+
+        /** App-level UI state (first-launch flags); separate from AppSettings. */
+        private const val PREFS_APP_STATE = "app_state"
+        private const val KEY_GUIDE_INSTALLED = "guide_installed"
     }
 }
 

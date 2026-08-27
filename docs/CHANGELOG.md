@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- First-launch onboarding: the bundled `guide.js` is quietly installed and
+  run on the very first app start, rendering a Markdown walkthrough of the
+  drawer, gestures, settings, and script APIs (19th bundled example)
 - "Built-in Examples" import: the add-script dialog offers a picker over the
   18 examples bundled in `assets/builtin_examples/` (synced copies of
   `scripts/examples/`); selecting one installs it immediately. Installing
