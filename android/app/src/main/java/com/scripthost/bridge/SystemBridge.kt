@@ -1,16 +1,20 @@
 package com.scripthost.bridge
 
 import android.content.Context
+import android.app.ActivityManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.StatFs
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import com.eclipsesource.v8.JavaCallback
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
@@ -24,18 +28,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.TimeZone
 
 /**
  * System Bridge - Exposes system functionality to scripts
  * Includes network, storage, sensors, and device APIs.
  *
  * J2V8 runtimes are not thread-safe. All V8 access (callback invocation,
- * V8Object/V8Array creation) happens on the main thread; network work runs on
- * the IO dispatcher and sensor events are marshaled through the main handler.
+ * V8Object/V8Array creation) happens on the engine's V8 thread; network work
+ * runs on the IO dispatcher and sensor events are marshaled back to it.
  */
 class SystemBridge(
     private val context: Context,
@@ -45,11 +49,19 @@ class SystemBridge(
 
     private var runtime: V8? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val mainHandler = Handler(Looper.getMainLooper())
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+    /**
+     * Handler of the engine's V8 thread, captured in [register] (which the
+     * engine invokes on that thread). Java→JS callbacks arriving off it
+     * (HTTP completions, sensor events) are re-marshaled onto it.
+     */
+    private var engineHandler: Handler? = null
 
     override fun register(runtime: V8) {
         this.runtime = runtime
+        // register() is invoked on the engine's V8 thread
+        engineHandler = Handler(Looper.myLooper() ?: Looper.getMainLooper())
 
         // Network API
         val networkObject = V8Object(runtime)
@@ -95,6 +107,12 @@ class SystemBridge(
         deviceObject.registerJavaMethod(this, "vibrate", "vibrate",
             arrayOf(Int::class.java))
         deviceObject.registerJavaMethod(this, "getDeviceInfo", "getInfo", emptyArray())
+        deviceObject.registerJavaMethod(this, "getTime", "getTime", emptyArray())
+        deviceObject.registerJavaMethod(this, "getTimeZone", "getTimeZone", emptyArray())
+        deviceObject.registerJavaMethod(this, "getDeviceName", "getDeviceName", emptyArray())
+        deviceObject.registerJavaMethod(this, "getMemoryInfo", "getMemoryInfo", emptyArray())
+        deviceObject.registerJavaMethod(this, "getStorageInfo", "getStorageInfo", emptyArray())
+        deviceObject.registerJavaMethod(this, "getSystemInfo", "getSystemInfo", emptyArray())
         deviceObject.release()
     }
 
@@ -196,12 +214,12 @@ class SystemBridge(
 
                 connection.disconnect()
 
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeCallback(callback, response, if (response == null) "HTTP $responseCode" else null)
                 }
 
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeCallback(callback, null, e.message ?: "Network error")
                 }
             }
@@ -238,12 +256,12 @@ class SystemBridge(
 
                 connection.disconnect()
 
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeCallback(callback, response, if (response == null) "HTTP $responseCode" else null)
                 }
 
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeCallback(callback, null, e.message ?: "Network error")
                 }
             }
@@ -394,10 +412,10 @@ class SystemBridge(
                 val z = event.values[2].toDouble()
 
                 // Sensor callbacks arrive on the sensor thread; V8 must only be
-                // touched from the main thread.
-                mainHandler.post {
-                    val runtime = this@SystemBridge.runtime ?: return@post
-                    if (retained.isReleased) return@post
+                // touched from the engine's V8 thread.
+                onEngineThread {
+                    val runtime = this@SystemBridge.runtime ?: return@onEngineThread
+                    if (retained.isReleased) return@onEngineThread
 
                     val data = V8Object(runtime)
                     data.add("x", x)
@@ -476,7 +494,128 @@ class SystemBridge(
         return info
     }
 
+    /**
+     * Current time as epoch milliseconds. Returned as a Double because JS
+     * numbers are IEEE-754 doubles (epoch ms exceeds Int32).
+     */
+    @Suppress("unused")
+    fun getTime(): Double = System.currentTimeMillis().toDouble()
+
+    /**
+     * Current time zone ID (e.g. "Asia/Shanghai").
+     */
+    @Suppress("unused")
+    fun getTimeZone(): String = TimeZone.getDefault().id
+
+    /**
+     * User-visible device name: the Settings "device_name" when set,
+     * falling back to the model name.
+     */
+    @Suppress("unused")
+    fun getDeviceName(): String {
+        val name = Settings.Global.getString(context.contentResolver, "device_name")
+        return if (name.isNullOrEmpty()) Build.MODEL else name
+    }
+
+    /**
+     * Memory info as `{ totalMB, availableMB, lowMemory }` (MiB).
+     */
+    @Suppress("unused")
+    fun getMemoryInfo(): V8Object {
+        val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
+        val stats = memoryStats()
+        val info = V8Object(runtime)
+        info.add("totalMB", stats.totalMB)
+        info.add("availableMB", stats.availableMB)
+        info.add("lowMemory", stats.lowMemory)
+        return info
+    }
+
+    /**
+     * Internal data-storage info as `{ totalMB, freeMB, usedMB }` (MiB).
+     */
+    @Suppress("unused")
+    fun getStorageInfo(): V8Object {
+        val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
+        val stats = storageStats()
+        val info = V8Object(runtime)
+        info.add("totalMB", stats.totalMB)
+        info.add("freeMB", stats.freeMB)
+        info.add("usedMB", stats.usedMB)
+        return info
+    }
+
+    /**
+     * System version and architecture info:
+     * `{ androidVersion, sdkVersion, abi, supportedAbis }`. Manufacturer and
+     * model are intentionally left to [getDeviceInfo] to avoid duplication.
+     */
+    @Suppress("unused")
+    fun getSystemInfo(): V8Object {
+        val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
+        val stats = systemStats()
+        val info = V8Object(runtime)
+        info.add("androidVersion", stats.androidVersion)
+        info.add("sdkVersion", stats.sdkVersion)
+        info.add("abi", stats.abi)
+        val abis = V8Array(runtime)
+        stats.supportedAbis.forEach { abis.push(it) }
+        info.add("supportedAbis", abis)
+        abis.release()
+        return info
+    }
+
+    /** System version/ABI snapshot from Build; V8-free so it is JVM-testable. */
+    internal fun systemStats(): SystemStats {
+        return SystemStats(
+            androidVersion = Build.VERSION.RELEASE,
+            sdkVersion = Build.VERSION.SDK_INT,
+            abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown",
+            supportedAbis = Build.SUPPORTED_ABIS.toList()
+        )
+    }
+
+    /** Memory snapshot in MiB via ActivityManager; V8-free so it is JVM-testable. */
+    internal fun memoryStats(): MemoryStats {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memoryInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memoryInfo)
+        return MemoryStats(
+            totalMB = (memoryInfo.totalMem / MIB).toInt(),
+            availableMB = (memoryInfo.availMem / MIB).toInt(),
+            lowMemory = memoryInfo.lowMemory
+        )
+    }
+
+    /** Internal data-storage snapshot in MiB via StatFs; V8-free so it is JVM-testable. */
+    internal fun storageStats(): StorageStats {
+        // absolutePath (not path) so the key matches ShadowStatFs.registerStats
+        // on Windows-hosted JVM tests; identical on device (/data).
+        val statFs = StatFs(Environment.getDataDirectory().absolutePath)
+        val totalBytes = statFs.blockCountLong * statFs.blockSizeLong
+        val freeBytes = statFs.availableBlocksLong * statFs.blockSizeLong
+        return StorageStats(
+            totalMB = (totalBytes / MIB).toInt(),
+            freeMB = (freeBytes / MIB).toInt(),
+            usedMB = ((totalBytes - freeBytes) / MIB).toInt()
+        )
+    }
+
     // Helper methods
+
+    /**
+     * Run [block] on the engine's V8 thread. This is a no-op when already on
+     * it. Java→JS callbacks (HTTP completions, sensor events) arrive off it
+     * and MUST be re-marshaled: J2V8 throws on foreign-thread access.
+     */
+    private fun onEngineThread(block: () -> Unit) {
+        val handler = engineHandler
+        if (handler == null || Looper.myLooper() == handler.looper) {
+            block()
+        } else {
+            handler.post(block)
+        }
+    }
 
     /**
      * Extract the trailing V8Function argument, or null when missing.
@@ -523,4 +662,22 @@ class SystemBridge(
         // One-shot async callback: release the handle obtained by extractCallback
         callback.release()
     }
+
+    companion object {
+        private const val MIB = 1024L * 1024L
+    }
 }
+
+/** Memory snapshot in MiB (see [SystemBridge.memoryStats]). */
+internal data class MemoryStats(val totalMB: Int, val availableMB: Int, val lowMemory: Boolean)
+
+/** Internal data-storage snapshot in MiB (see [SystemBridge.storageStats]). */
+internal data class StorageStats(val totalMB: Int, val freeMB: Int, val usedMB: Int)
+
+/** System version/ABI snapshot (see [SystemBridge.systemStats]). */
+internal data class SystemStats(
+    val androidVersion: String,
+    val sdkVersion: Int,
+    val abi: String,
+    val supportedAbis: List<String>
+)

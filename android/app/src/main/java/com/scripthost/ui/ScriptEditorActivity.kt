@@ -6,11 +6,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.scripthost.ScriptHostApplication
 import com.scripthost.models.Permission
-import com.scripthost.models.ScriptCategory
 import kotlinx.coroutines.launch
 
 /**
- * Script Editor Activity - Create and edit scripts
+ * Script Editor Activity - Create and edit scripts.
+ *
+ * Chrome follows the sub-screen spec: a top-left X closes the editor, and a
+ * rightward swipe anywhere on it does the same.
  */
 class ScriptEditorActivity : AppCompatActivity() {
 
@@ -20,7 +22,6 @@ class ScriptEditorActivity : AppCompatActivity() {
     private lateinit var descriptionEditText: EditText
     private lateinit var codeEditText: EditText
     private lateinit var saveButton: Button
-    private lateinit var categorySpinner: Spinner
 
     private val app get() = application as ScriptHostApplication
     private val scriptManager get() = app.scriptManager
@@ -37,19 +38,28 @@ class ScriptEditorActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
+        // Outermost container observes all touches: a quick rightward fling
+        // anywhere on the screen closes the editor
+        val swipeContainer = SubScreenChrome.swipeRightCloseContainer(this) { finish() }
+
         val scrollView = ScrollView(this)
+
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 16, 16, 16)
         }
 
-        // Title
-        val titleText = TextView(this).apply {
+        // Header: X at top-left closes the editor
+        val headerRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        headerRow.addView(SubScreenChrome.closeButton(this) { finish() })
+        headerRow.addView(TextView(this).apply {
             text = if (scriptId != null) "Edit Script" else "New Script"
             textSize = 24f
-            setPadding(0, 0, 0, 24)
-        }
-        rootLayout.addView(titleText)
+        })
+        rootLayout.addView(headerRow)
 
         // Name
         rootLayout.addView(TextView(this).apply { text = "Name:" })
@@ -83,20 +93,6 @@ class ScriptEditorActivity : AppCompatActivity() {
             )
         }
         rootLayout.addView(authorEditText)
-
-        // Category
-        rootLayout.addView(TextView(this).apply { text = "Category:" })
-        categorySpinner = Spinner(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        val categories = ScriptCategory.values().map { it.name }
-        categorySpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, categories).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        rootLayout.addView(categorySpinner)
 
         // Description
         rootLayout.addView(TextView(this).apply { text = "Description:" })
@@ -134,7 +130,11 @@ class ScriptEditorActivity : AppCompatActivity() {
         rootLayout.addView(saveButton)
 
         scrollView.addView(rootLayout)
-        setContentView(scrollView)
+        swipeContainer.addView(scrollView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        setContentView(swipeContainer)
 
         // Event listeners
         saveButton.setOnClickListener {
@@ -150,11 +150,6 @@ class ScriptEditorActivity : AppCompatActivity() {
         authorEditText.setText(script.author)
         descriptionEditText.setText(script.description)
         codeEditText.setText(script.sourceCode)
-
-        val categoryIndex = ScriptCategory.values().indexOf(script.category)
-        if (categoryIndex >= 0) {
-            categorySpinner.setSelection(categoryIndex)
-        }
     }
 
     private fun saveScript() {
@@ -169,8 +164,6 @@ class ScriptEditorActivity : AppCompatActivity() {
             return
         }
 
-        val category = ScriptCategory.values()[categorySpinner.selectedItemPosition]
-
         // Preserve the existing script's permissions when editing; new scripts
         // default to INTERNET (can be extended with permission selector UI)
         val permissions = scriptId?.let { scriptManager.getScript(it)?.permissions }
@@ -184,7 +177,6 @@ class ScriptEditorActivity : AppCompatActivity() {
                 description = description,
                 permissions = permissions,
                 sourceCode = code,
-                category = category,
                 verifySignature = false
             )
 

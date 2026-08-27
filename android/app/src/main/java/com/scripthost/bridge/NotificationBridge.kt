@@ -12,14 +12,15 @@ import com.scripthost.engine.ScriptBridge
 import com.scripthost.models.Permission
 import com.scripthost.notify.DailyNotificationWorker
 import com.scripthost.notify.NextRunCalculator
+import com.scripthost.notify.OneShotNotificationWorker
 import com.scripthost.security.PermissionManager
 import java.util.Calendar
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Notification Bridge - Exposes notifications and daily scheduling to scripts
+ * Notification Bridge - Exposes notifications and scheduling to scripts.
  * Provides the `Notify` global for immediate notifications and the
- * `Scheduler` global for WorkManager-backed daily notifications.
+ * `Scheduler` global for WorkManager-backed one-shot and daily notifications.
  */
 class NotificationBridge(
     private val context: Context,
@@ -45,6 +46,12 @@ class NotificationBridge(
         runtime.add("Scheduler", schedulerObject)
         schedulerObject.registerJavaMethod(this, "scheduleDaily", "scheduleDaily",
             arrayOf(String::class.java, Int::class.java, Int::class.java,
+                String::class.java, String::class.java))
+        schedulerObject.registerJavaMethod(this, "scheduleIn", "scheduleIn",
+            arrayOf(String::class.java, Double::class.java,
+                String::class.java, String::class.java))
+        schedulerObject.registerJavaMethod(this, "scheduleAt", "scheduleAt",
+            arrayOf(String::class.java, Double::class.java,
                 String::class.java, String::class.java))
         schedulerObject.registerJavaMethod(this, "cancelSchedule", "cancel",
             arrayOf(String::class.java))
@@ -112,7 +119,45 @@ class NotificationBridge(
     }
 
     /**
-     * Cancel the daily notification scheduled under [id].
+     * Schedule a one-shot notification [delayMs] milliseconds from now under
+     * [id]. WorkManager delays are inexact (battery-friendly), so treat this
+     * as minute-scale precision. Returns false without the NOTIFICATIONS
+     * permission or when [delayMs] is negative/NaN.
+     */
+    @Suppress("unused")
+    fun scheduleIn(id: String, delayMs: Double, title: String, message: String): Boolean {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.NOTIFICATIONS)) {
+            return false
+        }
+        if (delayMs.isNaN() || delayMs < 0) {
+            return false
+        }
+
+        OneShotNotificationWorker.enqueueIn(context, id, delayMs.toLong(), title, message)
+        return true
+    }
+
+    /**
+     * Schedule a one-shot notification at the absolute time [epochMs]
+     * (milliseconds since the Unix epoch) under [id]. Past times fire as soon
+     * as possible. Returns false without the NOTIFICATIONS permission or when
+     * [epochMs] is NaN.
+     */
+    @Suppress("unused")
+    fun scheduleAt(id: String, epochMs: Double, title: String, message: String): Boolean {
+        if (!permissionManager.hasScriptPermission(scriptId, Permission.NOTIFICATIONS)) {
+            return false
+        }
+        if (epochMs.isNaN()) {
+            return false
+        }
+
+        OneShotNotificationWorker.enqueueAt(context, id, epochMs.toLong(), title, message)
+        return true
+    }
+
+    /**
+     * Cancel the notification scheduled under [id] — daily or one-shot.
      */
     @Suppress("unused")
     fun cancelSchedule(id: String): Boolean {
@@ -121,6 +166,7 @@ class NotificationBridge(
         }
 
         DailyNotificationWorker.cancel(context, id)
+        OneShotNotificationWorker.cancel(context, id)
         return true
     }
 

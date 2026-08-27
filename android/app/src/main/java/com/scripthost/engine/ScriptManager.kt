@@ -4,7 +4,6 @@ import android.content.Context
 import com.scripthost.models.InstallResult
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
-import com.scripthost.models.ScriptCategory
 import com.scripthost.models.VerificationResult
 import com.scripthost.security.SignatureVerifier
 import com.scripthost.util.AndroidLogger
@@ -60,7 +59,6 @@ class ScriptManager(
         permissions: List<Permission>,
         sourceCode: String,
         signature: String? = null,
-        category: ScriptCategory = ScriptCategory.UTILITY,
         verifySignature: Boolean = true
     ): InstallResult = withContext(Dispatchers.IO) {
 
@@ -83,8 +81,7 @@ class ScriptManager(
                 description = description,
                 permissions = permissions,
                 sourceCode = sourceCode,
-                signature = signature,
-                category = category
+                signature = signature
             )
 
             if (verifySignature) {
@@ -154,11 +151,6 @@ class ScriptManager(
             val description = jsonObject.optString("description", "")
             val sourceCode = jsonObject.getString("sourceCode")
             val signature = jsonObject.optString("signature", null)
-            val category = try {
-                ScriptCategory.valueOf(jsonObject.optString("category", ScriptCategory.UTILITY.name))
-            } catch (e: IllegalArgumentException) {
-                ScriptCategory.UTILITY
-            }
 
             val permissionsArray = jsonObject.optJSONArray("permissions") ?: JSONArray()
             val permissions = mutableListOf<Permission>()
@@ -175,7 +167,6 @@ class ScriptManager(
                 permissions = permissions,
                 sourceCode = sourceCode,
                 signature = signature,
-                category = category,
                 verifySignature = verifySignature
             )
 
@@ -213,7 +204,6 @@ class ScriptManager(
             permissions = existingScript.permissions,
             sourceCode = newSourceCode,
             signature = null,
-            category = existingScript.category,
             verifySignature = false
         )
     }
@@ -230,13 +220,6 @@ class ScriptManager(
      */
     fun getAllScripts(): List<Script> {
         return installedScripts.values.toList()
-    }
-
-    /**
-     * Get scripts by category.
-     */
-    fun getScriptsByCategory(category: ScriptCategory): List<Script> {
-        return installedScripts.values.filter { it.category == category }
     }
 
     /**
@@ -265,7 +248,6 @@ class ScriptManager(
         jsonObject.put("author", script.author)
         jsonObject.put("description", script.description)
         jsonObject.put("sourceCode", script.sourceCode)
-        jsonObject.put("category", script.category.name)
 
         if (script.signature != null) {
             jsonObject.put("signature", script.signature)
@@ -320,7 +302,6 @@ class ScriptManager(
                 jsonObject.put("version", script.version)
                 jsonObject.put("author", script.author)
                 jsonObject.put("description", script.description)
-                jsonObject.put("category", script.category.name)
                 jsonObject.put("createdAt", script.createdAt.time)
                 jsonObject.put("updatedAt", script.updatedAt.time)
 
@@ -365,11 +346,7 @@ class ScriptManager(
             Permission.fromString(permName)?.let { permissions.add(it) }
         }
 
-        val category = try {
-            ScriptCategory.valueOf(jsonObject.optString("category", ScriptCategory.UTILITY.name))
-        } catch (e: IllegalArgumentException) {
-            ScriptCategory.UTILITY
-        }
+        // Legacy metadata may still carry a "category" key; it is ignored.
 
         return Script(
             id = scriptId,
@@ -382,8 +359,7 @@ class ScriptManager(
             signature = jsonObject.optString("signature", null),
             createdAt = Date(jsonObject.optLong("createdAt", System.currentTimeMillis())),
             updatedAt = Date(jsonObject.optLong("updatedAt", System.currentTimeMillis())),
-            iconUrl = jsonObject.optString("iconUrl", null),
-            category = category
+            iconUrl = jsonObject.optString("iconUrl", null)
         )
     }
 }

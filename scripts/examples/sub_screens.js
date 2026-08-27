@@ -5,7 +5,7 @@
 let items = [
     { name: "Inbox", text: "Your inbox holds incoming messages that are waiting to be read." },
     { name: "Calendar", text: "The calendar shows your upcoming events and reminders." },
-    { name: "Settings", text: "Settings let you tune the app to your liking." }
+    { name: "Notes", text: "Notes keep your quick ideas and to-dos in one place." }
 ];
 
 let title = new Label("Sub-Screens Demo");

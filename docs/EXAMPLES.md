@@ -331,6 +331,64 @@ Tap "Back" (or the device back button) to pop it
 
 ---
 
+### 15. Markdown Demo (`markdown_demo.js`)
+
+**Description**: Renders Markdown text with the built-in lightweight parser
+and replaces the content on demand when a button is tapped.
+
+**Concepts Demonstrated**:
+- `new Markdown(text)` and `UI.addView(md)`
+- `md.setMarkdown(text)` to replace rendered content
+- Headings, emphasis, code, lists, blockquotes, links, horizontal rules
+
+**Permissions Required**: None
+
+**Usage**:
+```bash
+Import markdown_demo.js into ScriptHost and run it
+Tap "Show code sample" to swap in a fenced code block
+```
+
+---
+
+### 16. Scheduled Notifications (`scheduled_notify.js`)
+
+**Description**: Posts an immediate notification, schedules one-shot
+notifications after a delay and at an absolute time, sets up a daily
+recurring reminder, and cancels a schedule.
+
+**Concepts Demonstrated**:
+- `Notify.post(title, message)` for immediate notifications
+- `Scheduler.scheduleIn(id, delayMs, ...)` one-shot after a delay
+- `Scheduler.scheduleAt(id, epochMs, ...)` one-shot at an absolute time
+- `Scheduler.scheduleDaily(...)` and `Scheduler.cancel(id)`
+
+**Permissions Required**: NOTIFICATIONS
+
+**Usage**:
+```bash
+Import scheduled_notify.js into ScriptHost and run it
+Grant the notifications permission when prompted
+```
+
+---
+
+### 17. Device Info (`device_info.js`)
+
+**Description**: Displays read-only device and system information —
+manufacturer/model, device name, Android version, CPU architecture,
+time/timezone, and live memory/storage usage with a refresh button.
+
+**Concepts Demonstrated**:
+- `Device.getInfo()` and `Device.getSystemInfo()` for version/ABI details
+- `Device.getTime()`, `Device.getTimeZone()`, `Device.getDeviceName()`
+- `Device.getMemoryInfo()` and `Device.getStorageInfo()` for usage stats
+- `Config.keys()` to list configured key names
+
+**Permissions Required**: CONFIG (only for the `Config.keys()` row)
+
+---
+
 ## Creating Your Own Scripts
 
 ### Basic Template
@@ -342,8 +400,7 @@ Tap "Back" (or the device back button) to pop it
 //   "version": "1.0.0",
 //   "author": "Your Name",
 //   "description": "What your script does",
-//   "permissions": ["INTERNET"],
-//   "category": "UTILITY"
+//   "permissions": ["INTERNET"]
 // }
 
 // Your script code here

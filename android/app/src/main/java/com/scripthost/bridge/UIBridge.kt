@@ -22,6 +22,7 @@ import com.eclipsesource.v8.V8Value
 import com.scripthost.engine.ScriptBridge
 import com.scripthost.ui.chart.ChartScale
 import com.scripthost.ui.chart.SimpleChartView
+import com.scripthost.ui.markdown.MarkdownRenderer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
@@ -34,8 +35,10 @@ import java.util.concurrent.atomic.AtomicReference
  * corner radius) plus component-specific methods. Animations are intentionally
  * not part of the interface; all properties are applied statically.
  *
- * All V8 access happens on the main thread (J2V8 thread affinity); view
- * mutation is marshaled through [onUiThread].
+ * All V8 access happens on the engine's V8 thread (J2V8 thread affinity);
+ * view mutation is marshaled to the main thread through [onUiThread], and
+ * Java→JS callbacks arriving on the main thread are marshaled back through
+ * [onEngineThread].
  *
  * The constructor's [rootView] acts as a page HOST: the bridge stacks full-size
  * page containers inside it and always shows exactly one page (the top of the
@@ -63,6 +66,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     private var nextViewId = 1000
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    /**
+     * Handler of the engine's V8 thread, captured in [register] (which the
+     * engine invokes on that thread). Java→JS callbacks arriving on the main
+     * thread (view events, dialogs) are re-marshaled onto it.
+     */
+    private var engineHandler: Handler? = null
+
     /** Stack of pages hosted by [rootView]; the bottom entry is the root page. */
     private val pageStack = java.util.ArrayDeque<LinearLayout>()
 
@@ -78,6 +88,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
 
     override fun register(runtime: V8) {
         this.runtime = runtime
+        // register() is invoked on the engine's V8 thread
+        engineHandler = Handler(Looper.myLooper() ?: Looper.getMainLooper())
 
         // Create UI namespace
         val uiObject = V8Object(runtime)
@@ -107,6 +119,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         runtime.registerJavaMethod(this, "createProgressBar", "ProgressBar", emptyArray())
         runtime.registerJavaMethod(this, "createLayout", "Layout", arrayOf(String::class.java))
         runtime.registerJavaMethod(this, "createChart", "Chart", arrayOf(String::class.java))
+        runtime.registerJavaMethod(this, "createMarkdown", "Markdown", arrayOf(String::class.java))
 
         // Dialog helpers (global functions)
         runtime.registerJavaMethod(this, "showAlert", "showAlert",
@@ -547,6 +560,36 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         return jsObject
     }
 
+    /**
+     * Create a Markdown component: a TextView rendering [markdown] via the
+     * lightweight [MarkdownRenderer]. Links are clickable.
+     */
+    @Suppress("unused")
+    fun createMarkdown(markdown: String): V8Object {
+        val runtime = this.runtime ?: throw IllegalStateException("Runtime not initialized")
+
+        val textView = onUiThread {
+            TextView(context).apply {
+                textSize = 15f
+                movementMethod = android.text.method.LinkMovementMethod.getInstance()
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(dp(16), dp(16), dp(16), dp(16))
+                }
+                text = MarkdownRenderer.render(markdown, resources.displayMetrics.density)
+            }
+        }
+
+        val viewId = registerView(textView)
+        val jsObject = newJsObject(runtime, viewId)
+        jsObject.registerJavaMethod(this, "setMarkdownContent", "setMarkdown",
+            arrayOf(V8Object::class.java, String::class.java), true)
+
+        return jsObject
+    }
+
     // ------------------------------------------------------------------
     // Common view configuration methods (registered on every component)
     // ------------------------------------------------------------------
@@ -609,9 +652,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setViewAlpha(receiver: V8Object, alpha: Float) {
+    fun setViewAlpha(receiver: V8Object, alpha: Double) {
         val viewId = receiver.getInteger("_viewId")
-        onUiThread { viewRegistry[viewId]?.alpha = alpha.coerceIn(0f, 1f) }
+        onUiThread { viewRegistry[viewId]?.alpha = alpha.toFloat().coerceIn(0f, 1f) }
     }
 
     @Suppress("unused")
@@ -626,12 +669,12 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setViewCornerRadius(receiver: V8Object, radiusDp: Float) {
+    fun setViewCornerRadius(receiver: V8Object, radiusDp: Double) {
         val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] ?: return@onUiThread
             val style = viewStyles.getOrPut(viewId) { ViewStyle() }
-            style.cornerRadiusDp = radiusDp
+            style.cornerRadiusDp = radiusDp.toFloat()
             applyBackground(view, style)
         }
     }
@@ -644,9 +687,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     // ------------------------------------------------------------------
 
     @Suppress("unused")
-    fun setTextViewSize(receiver: V8Object, size: Float) {
+    fun setTextViewSize(receiver: V8Object, size: Double) {
         val viewId = receiver.getInteger("_viewId")
-        onUiThread { (viewRegistry[viewId] as? TextView)?.textSize = size }
+        onUiThread { (viewRegistry[viewId] as? TextView)?.textSize = size.toFloat() }
     }
 
     @Suppress("unused")
@@ -706,7 +749,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? Button)?.setOnClickListener {
-                retained.call(runtime, null)
+                onEngineThread { retained.call(runtime, null) }
             }
         }
     }
@@ -739,9 +782,12 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
                 object : android.text.TextWatcher {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                        val params = V8Array(runtime).push(s.toString())
-                        retained.call(runtime, params)
-                        params.release()
+                        val text = s.toString()
+                        onEngineThread {
+                            val params = V8Array(runtime).push(text)
+                            retained.call(runtime, params)
+                            params.release()
+                        }
                     }
                     override fun afterTextChanged(s: android.text.Editable?) {}
                 }
@@ -807,9 +853,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? android.widget.ListView)?.setOnItemClickListener { _, _, position, _ ->
-                val params = V8Array(runtime).push(position)
-                retained.call(runtime, params)
-                params.release()
+                onEngineThread {
+                    val params = V8Array(runtime).push(position)
+                    retained.call(runtime, params)
+                    params.release()
+                }
             }
         }
     }
@@ -880,9 +928,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? androidx.appcompat.widget.SwitchCompat)?.setOnCheckedChangeListener { _, isChecked ->
-                val params = V8Array(runtime).push(isChecked)
-                retained.call(runtime, params)
-                params.release()
+                onEngineThread {
+                    val params = V8Array(runtime).push(isChecked)
+                    retained.call(runtime, params)
+                    params.release()
+                }
             }
         }
     }
@@ -925,9 +975,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
             (viewRegistry[viewId] as? SeekBar)?.setOnSeekBarChangeListener(
                 object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                        val params = V8Array(runtime).push(progress)
-                        retained.call(runtime, params)
-                        params.release()
+                        onEngineThread {
+                            val params = V8Array(runtime).push(progress)
+                            retained.call(runtime, params)
+                            params.release()
+                        }
                     }
                     override fun onStartTrackingTouch(seekBar: SeekBar?) {}
                     override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -961,9 +1013,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? CheckBox)?.setOnCheckedChangeListener { _, isChecked ->
-                val params = V8Array(runtime).push(isChecked)
-                retained.call(runtime, params)
-                params.release()
+                onEngineThread {
+                    val params = V8Array(runtime).push(isChecked)
+                    retained.call(runtime, params)
+                    params.release()
+                }
             }
         }
     }
@@ -1003,9 +1057,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
                 object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                         val label = parent?.getItemAtPosition(position)?.toString() ?: ""
-                        val params = V8Array(runtime).push(position).push(label)
-                        retained.call(runtime, params)
-                        params.release()
+                        onEngineThread {
+                            val params = V8Array(runtime).push(position).push(label)
+                            retained.call(runtime, params)
+                            params.release()
+                        }
                     }
                     override fun onNothingSelected(parent: AdapterView<*>?) {}
                 }
@@ -1065,6 +1121,15 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         onUiThread {
             val chart = viewRegistry[viewId] as? SimpleChartView ?: return@onUiThread
             chart.lineColor = ChartScale.parseColorOr(color, chart.lineColor)
+        }
+    }
+
+    @Suppress("unused")
+    fun setMarkdownContent(receiver: V8Object, markdown: String) {
+        val viewId = receiver.getInteger("_viewId")
+        onUiThread {
+            val textView = viewRegistry[viewId] as? TextView ?: return@onUiThread
+            textView.text = MarkdownRenderer.render(markdown, context.resources.displayMetrics.density)
         }
     }
 
@@ -1295,8 +1360,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
                 .setMessage(message)
                 .setView(input)
                 .setPositiveButton("OK") { _, _ ->
+                    val value = input.text.toString()
                     invokeCallback(retained, runtime) {
-                        it.push(input.text.toString()).push(false)
+                        it.push(value).push(false)
                     }
                 }
                 .setNegativeButton("Cancel") { _, _ ->
@@ -1334,7 +1400,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     fun showToast(parameters: V8Array) {
         if (parameters.length() < 1) return
         val message = parameters.getString(0)
-        val long = parameters.length() > 1 && parameters.getString(1).equals("long", ignoreCase = true)
+        // Second arg is optional; only the string "long" (any case) selects
+        // LENGTH_LONG — any other type is tolerated as LENGTH_SHORT.
+        val long = parameters.length() > 1 &&
+            parameters.getType(1) == V8Value.STRING &&
+            parameters.getString(1).equals("long", ignoreCase = true)
         onUiThread {
             Toast.makeText(context, message, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
         }
@@ -1366,17 +1436,17 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         jsObject.registerJavaMethod(this, "setViewHeight", "setHeight",
             arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setViewAlpha", "setAlpha",
-            arrayOf(V8Object::class.java, Float::class.java), true)
+            arrayOf(V8Object::class.java, Double::class.java), true)
         jsObject.registerJavaMethod(this, "setViewBackgroundColor", "setBackgroundColor",
             arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setViewCornerRadius", "setCornerRadius",
-            arrayOf(V8Object::class.java, Float::class.java), true)
+            arrayOf(V8Object::class.java, Double::class.java), true)
         jsObject.registerJavaMethod(this, "getViewId", "getViewId", arrayOf(V8Object::class.java), true)
     }
 
     private fun registerTextMethods(jsObject: V8Object) {
         jsObject.registerJavaMethod(this, "setTextViewSize", "setTextSize",
-            arrayOf(V8Object::class.java, Float::class.java), true)
+            arrayOf(V8Object::class.java, Double::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewColor", "setTextColor",
             arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewBold", "setBold",
@@ -1392,6 +1462,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     /**
      * Run [block] on the Android main thread, blocking the caller until it
      * completes. This is a no-op when already on the main thread.
+     *
+     * Callers are usually the engine's V8 thread (JS→Java bridge methods).
+     * Block-waiting here is deadlock-free because the main thread never
+     * block-waits on the engine thread: script execution is awaited
+     * asynchronously and engine teardown never blocks (see JavaScriptEngine).
      */
     private fun <T> onUiThread(block: () -> T): T {
         if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -1408,6 +1483,20 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         }
         latch.await()
         return result.get()
+    }
+
+    /**
+     * Run [block] on the engine's V8 thread. This is a no-op when already on
+     * it. Java→JS callbacks (view events, dialogs) fire on the main thread
+     * and MUST be re-marshaled: J2V8 throws on foreign-thread access.
+     */
+    private fun onEngineThread(block: () -> Unit) {
+        val handler = engineHandler
+        if (handler == null || Looper.myLooper() == handler.looper) {
+            block()
+        } else {
+            handler.post(block)
+        }
     }
 
     private fun registerView(view: View): Int {
@@ -1505,16 +1594,20 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     private fun invokeCallback(callback: V8Function, runtime: V8, fill: (V8Array) -> Unit) {
-        try {
-            val params = V8Array(runtime)
-            fill(params)
-            callback.call(runtime, params)
-            params.release()
-        } catch (e: Exception) {
-            // The callback may have been released after script teardown; ignore
-        } finally {
-            // Dialog callbacks are one-shot: release the retained twin
-            releaseCallback(callback)
+        // Dialog buttons fire on the main thread; V8 work belongs to the
+        // engine thread
+        onEngineThread {
+            try {
+                val params = V8Array(runtime)
+                fill(params)
+                callback.call(runtime, params)
+                params.release()
+            } catch (e: Exception) {
+                // The callback may have been released after script teardown; ignore
+            } finally {
+                // Dialog callbacks are one-shot: release the retained twin
+                releaseCallback(callback)
+            }
         }
     }
 

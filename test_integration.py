@@ -71,7 +71,7 @@ class IntegrationTester:
             print("  [FAIL] ScriptManager.kt not found")
             return False
 
-        content = script_manager.read_text()
+        content = script_manager.read_text(encoding="utf-8")
 
         # Check for key methods
         required_methods = [
@@ -102,7 +102,7 @@ class IntegrationTester:
             print("  [FAIL] PermissionManager.kt not found")
             return False
 
-        content = perm_manager.read_text()
+        content = perm_manager.read_text(encoding="utf-8")
 
         # Check for key methods
         checks = [
@@ -121,7 +121,7 @@ class IntegrationTester:
         # Check Permission enum
         script_kt = self.project_root / "android/app/src/main/java/com/scripthost/models/Script.kt"
         if script_kt.exists():
-            script_content = script_kt.read_text()
+            script_content = script_kt.read_text(encoding="utf-8")
             if 'enum class Permission' in script_content:
                 print(f"  [OK] Permission enum defined")
             else:
@@ -137,7 +137,7 @@ class IntegrationTester:
             print("  [FAIL] UIBridge.kt not found")
             return False
 
-        content = ui_bridge.read_text()
+        content = ui_bridge.read_text(encoding="utf-8")
 
         # Check for UI components
         components = ['Button', 'Label', 'TextField', 'ListView', 'ImageView',
@@ -174,7 +174,7 @@ class IntegrationTester:
             print("  [FAIL] SystemBridge.kt not found")
             return False
 
-        content = sys_bridge.read_text()
+        content = sys_bridge.read_text(encoding="utf-8")
 
         # Check for system APIs
         apis = [
@@ -201,7 +201,7 @@ class IntegrationTester:
             print("  [FAIL] SignatureVerifier.kt not found")
             return False
 
-        content = sig_verifier.read_text()
+        content = sig_verifier.read_text(encoding="utf-8")
 
         # Check for security methods
         security_features = [
@@ -228,7 +228,7 @@ class IntegrationTester:
             print("  [FAIL] JavaScriptEngine.kt not found")
             return False
 
-        content = js_engine.read_text()
+        content = js_engine.read_text(encoding="utf-8")
 
         # Check for execution methods
         execution_features = [
@@ -255,7 +255,7 @@ class IntegrationTester:
         if not js_engine.exists():
             return False
 
-        content = js_engine.read_text()
+        content = js_engine.read_text(encoding="utf-8")
 
         if 'sealed class ExecutionResult' in content or 'sealed interface ExecutionResult' in content:
             print(f"  [OK] ExecutionResult type defined")
@@ -283,7 +283,7 @@ class IntegrationTester:
         if not js_engine.exists():
             return False
 
-        content = js_engine.read_text()
+        content = js_engine.read_text(encoding="utf-8")
 
         # Check for resource limits
         resource_features = [
@@ -321,7 +321,7 @@ class IntegrationTester:
             print("  [FAIL] UIBridge.kt not found")
             return False
 
-        content = ui_bridge.read_text()
+        content = ui_bridge.read_text(encoding="utf-8")
         for pattern, desc in [('createChart', 'Chart factory method'),
                               ('"Chart"', 'Chart constructor registration')]:
             if pattern in content:
@@ -345,7 +345,7 @@ class IntegrationTester:
             print("  [FAIL] NotificationBridge.kt not found")
             return False
 
-        content = notif_bridge.read_text()
+        content = notif_bridge.read_text(encoding="utf-8")
         for pattern, desc in [('registerJavaMethod', 'JS method registration'),
                               ('hasScriptPermission', 'Permission gating'),
                               ('Notify', 'Notify global'),
@@ -364,13 +364,13 @@ class IntegrationTester:
             print(f"  [OK] {rel_path} present")
 
         manifest = self.project_root / "android/app/src/main/AndroidManifest.xml"
-        if not manifest.exists() or 'POST_NOTIFICATIONS' not in manifest.read_text():
+        if not manifest.exists() or 'POST_NOTIFICATIONS' not in manifest.read_text(encoding="utf-8"):
             print("  [FAIL] POST_NOTIFICATIONS missing from AndroidManifest.xml")
             return False
         print("  [OK] POST_NOTIFICATIONS declared in manifest")
 
         gradle = self.project_root / "android/app/build.gradle.kts"
-        if not gradle.exists() or 'work-runtime' not in gradle.read_text():
+        if not gradle.exists() or 'work-runtime' not in gradle.read_text(encoding="utf-8"):
             print("  [FAIL] work-runtime dependency missing from build.gradle.kts")
             return False
         print("  [OK] WorkManager dependency present")
@@ -397,7 +397,7 @@ class IntegrationTester:
             return False
         print("  [OK] SSHSessionManager.kt present")
 
-        content = ssh_bridge.read_text()
+        content = ssh_bridge.read_text(encoding="utf-8")
         if 'hasScriptPermission(scriptId, Permission.SSH)' in content:
             print("  [OK] SSH permission gating")
         else:
@@ -405,13 +405,13 @@ class IntegrationTester:
             return False
 
         script_kt = self.project_root / "android/app/src/main/java/com/scripthost/models/Script.kt"
-        if not script_kt.exists() or 'SSH(' not in script_kt.read_text():
+        if not script_kt.exists() or 'SSH(' not in script_kt.read_text(encoding="utf-8"):
             print("  [FAIL] Permission.SSH missing from models/Script.kt")
             return False
         print("  [OK] Permission.SSH declared")
 
         gradle = self.project_root / "android/app/build.gradle.kts"
-        if not gradle.exists() or 'jsch' not in gradle.read_text():
+        if not gradle.exists() or 'jsch' not in gradle.read_text(encoding="utf-8"):
             print("  [FAIL] jsch dependency missing from build.gradle.kts")
             return False
         print("  [OK] JSch dependency present")
@@ -431,7 +431,7 @@ class IntegrationTester:
             print("  [FAIL] build.gradle.kts not found")
             return False
 
-        content = gradle.read_text()
+        content = gradle.read_text(encoding="utf-8")
 
         # Check for test framework dependencies and options
         checks = [
@@ -468,7 +468,7 @@ class IntegrationTester:
             if not example.exists():
                 print(f"  [FAIL] {filename} not found")
                 return False
-            content = example.read_text()
+            content = example.read_text(encoding="utf-8")
             for pattern in patterns:
                 if pattern not in content:
                     print(f"  [FAIL] {filename} missing '{pattern}'")
@@ -495,10 +495,10 @@ class IntegrationTester:
             print()
             print("The ScriptHost implementation is complete and all components")
             print("are properly integrated. The system is ready for:")
-            print("  • Build and compilation")
-            print("  • Device testing")
-            print("  • Security audit")
-            print("  • Performance profiling")
+            print("  - Build and compilation")
+            print("  - Device testing")
+            print("  - Security audit")
+            print("  - Performance profiling")
         else:
             print("[WARN]  SOME INTEGRATION TESTS FAILED")
             print()

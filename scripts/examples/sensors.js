@@ -1,7 +1,7 @@
 // Example 5: Device Sensors
-// Demonstrates accelerometer access
+// Demonstrates accelerometer and gyroscope access
 
-let title = new Label("Accelerometer Demo");
+let title = new Label("Sensors Demo");
 title.setTextSize(24);
 UI.addView(title);
 
@@ -46,3 +46,24 @@ vibrateBtn.setOnTap(function() {
     Device.vibrate(200);
 });
 UI.addView(vibrateBtn);
+
+let gyroTitle = new Label("Gyroscope");
+gyroTitle.setTextSize(20);
+UI.addView(gyroTitle);
+
+let gyroLabel = new Label("X: 0.00, Y: 0.00, Z: 0.00");
+gyroLabel.setTextSize(16);
+UI.addView(gyroLabel);
+
+let gyroBtn = new Button("Start Gyroscope");
+gyroBtn.setBackgroundColor("#9C27B0");
+gyroBtn.setTextColor("#FFFFFF");
+gyroBtn.setOnTap(function() {
+    Sensor.getGyroscope(function(data) {
+        gyroLabel.setText("X: " + data.x.toFixed(2) +
+            ", Y: " + data.y.toFixed(2) +
+            ", Z: " + data.z.toFixed(2));
+    });
+    showToast("Gyroscope started");
+});
+UI.addView(gyroBtn);

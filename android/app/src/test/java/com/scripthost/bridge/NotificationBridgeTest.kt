@@ -126,6 +126,81 @@ class NotificationBridgeTest {
         assertThat(infos.all { it.state == WorkInfo.State.CANCELLED }).isTrue()
     }
 
+    @Test
+    fun scheduleIn_validDelay_enqueuesUniqueOneShotWork() {
+        assertThat(bridge.scheduleIn("y", 60_000.0, "Title", "Message")).isTrue()
+
+        val infos = WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWork("oneshot_y").get()
+        assertThat(infos).isNotEmpty()
+        assertThat(infos.all { it.state == WorkInfo.State.ENQUEUED }).isTrue()
+    }
+
+    @Test
+    fun scheduleIn_negativeDelay_returnsFalseAndEnqueuesNothing() {
+        assertThat(bridge.scheduleIn("y", -1.0, "Title", "Message")).isFalse()
+
+        val infos = WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWork("oneshot_y").get()
+        assertThat(infos).isEmpty()
+    }
+
+    @Test
+    fun scheduleIn_withoutPermission_returnsFalse() {
+        val unprivilegedBridge =
+            NotificationBridge(application, PermissionManager(application), SCRIPT_ID)
+
+        assertThat(unprivilegedBridge.scheduleIn("y", 60_000.0, "Title", "Message")).isFalse()
+
+        val infos = WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWork("oneshot_y").get()
+        assertThat(infos).isEmpty()
+    }
+
+    @Test
+    fun scheduleAt_futureTime_enqueuesUniqueOneShotWork() {
+        val future = System.currentTimeMillis() + 3_600_000.0
+        assertThat(bridge.scheduleAt("z", future, "Title", "Message")).isTrue()
+
+        val infos = WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWork("oneshot_z").get()
+        assertThat(infos).isNotEmpty()
+    }
+
+    @Test
+    fun scheduleAt_pastTime_enqueuesImmediately() {
+        val past = System.currentTimeMillis() - 1_000.0
+        assertThat(bridge.scheduleAt("z", past, "Title", "Message")).isTrue()
+
+        val infos = WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWork("oneshot_z").get()
+        assertThat(infos).isNotEmpty()
+    }
+
+    @Test
+    fun scheduleAt_withoutPermission_returnsFalse() {
+        val unprivilegedBridge =
+            NotificationBridge(application, PermissionManager(application), SCRIPT_ID)
+
+        assertThat(unprivilegedBridge.scheduleAt("z", 1_800_000_000_000.0, "Title", "Message"))
+            .isFalse()
+
+        val infos = WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWork("oneshot_z").get()
+        assertThat(infos).isEmpty()
+    }
+
+    @Test
+    fun cancelSchedule_removesOneShotWork() {
+        assertThat(bridge.scheduleIn("y", 60_000.0, "Title", "Message")).isTrue()
+
+        assertThat(bridge.cancelSchedule("y")).isTrue()
+
+        val infos = WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWork("oneshot_y").get()
+        assertThat(infos.all { it.state == WorkInfo.State.CANCELLED }).isTrue()
+    }
+
     private fun grantNotificationsToScript(manager: PermissionManager, scriptId: String) {
         shadowOf(application).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()

@@ -166,6 +166,13 @@ class PermissionManager(private val context: Context) {
     }
 
     /**
+     * Revoke a single granted permission for a script.
+     */
+    fun revokePermission(scriptId: String, permission: Permission) {
+        grantedPermissions[scriptId]?.remove(permission)
+    }
+
+    /**
      * Get granted permissions for a script
      */
     fun getGrantedPermissions(scriptId: String): Set<Permission> {

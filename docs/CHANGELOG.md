@@ -7,7 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Read-only `Device` system information for scripts: `Device.getTime()`
+  (epoch ms), `Device.getTimeZone()`, `Device.getDeviceName()`,
+  `Device.getMemoryInfo()` (`{ totalMB, availableMB, lowMemory }`),
+  `Device.getStorageInfo()` (`{ totalMB, freeMB, usedMB }`), and
+  `Device.getSystemInfo()` (`{ androidVersion, sdkVersion, abi,
+  supportedAbis }`); no permissions required
+- One-shot timed notifications: `Scheduler.scheduleIn(id, delayMs, title,
+  message)` and `Scheduler.scheduleAt(id, epochMs, title, message)` backed by
+  WorkManager one-time work (inexact, minute-scale precision);
+  `Scheduler.cancel(id)` now cancels one-shot schedules too
+- Markdown file association: opening a `.md` / `.markdown` file (content or
+  file scheme, `text/markdown` or `text/plain`) offers SAM's new
+  `MarkdownViewerActivity`, which renders the file with the built-in
+  MarkdownRenderer in a sub-screen (X / rightward swipe to close)
+- Settings "应用" section: debug-mode toggle (script `console.*` messages
+  mirrored to Logcat tag `ScriptConsole` when on) and light/dark appearance
+  (跟随系统 / 浅色 / 深色) via `AppCompatDelegate`; both persisted in the new
+  `AppSettings` (SharedPreferences `app_settings`, keys `debug_mode` /
+  `night_mode`), separate from the script-readable `ConfigStore`
+- "script aggregation mobile" subtitle under the SAM title in the main
+  header and the drawer header
+- `Markdown` script view: lightweight built-in Markdown renderer (headings,
+  bold/italic/strikethrough, inline and fenced code, lists, blockquotes,
+  clickable links, horizontal rules) with `new Markdown(text)` and
+  `md.setMarkdown(text)`; no external dependencies
+
+### Changed
+- Cleartext HTTP is now permitted (`android:usesCleartextTraffic="true"`)
+  because scripts commonly target local-network devices that only serve
+  plain HTTP; scripts should still prefer HTTPS for internet hosts
+
 ### Fixed
+- `setAlpha`, `setCornerRadius`, and `setTextSize` rejected fractional JS
+  numbers (`argument has type float, got java.lang.Double`); the bridge now
+  takes `Double` and converts at the use site
+- `showToast(message, <non-string>)` threw an empty error; any second
+  argument is now tolerated, with only the string `"long"` selecting
+  `LENGTH_LONG`
 - Missing Gradle wrapper; `./gradlew` now works as documented
 - Build configuration for AGP 8.2: enabled `android.useAndroidX` and removed
   legacy repository declarations that conflicted with the settings plugin
@@ -39,6 +77,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   paths outside `filesDir` fail closed with `null`/`false`)
 
 ### Changed
+- System ActionBar removed (`NoActionBar` theme); MainActivity now shows a
+  single slim in-app header bar — a custom ☰ hamburger button (replacing
+  `ActionBarDrawerToggle`) plus the title. The title shows
+  "SAM / script aggregation mobile" when idle and swaps to ✕ + the running
+  script's name while a script runs (no more stacked bars); the fragment
+  header merged into the activity-level header via a new
+  `Host.onScriptSessionStarted` callback. Edge-swipe drawer opening kept
+- Launcher icon replaced: white background with a compact black "SAM"
+  wordmark; `scripts/generate_launcher_icons.py` now draws 5x7 bitmap glyphs
+  and also generates adaptive-icon foreground PNGs
+  (`@mipmap/ic_launcher_foreground` over a white
+  `@color/ic_launcher_background`)
+- Example scripts no longer implement their own settings UIs:
+  `sub_screens.js` drops the Settings pseudo-page (Notes instead), and
+  `ui_controls.js` uses neutral demo labels instead of a fake settings form
+- App renamed to **SAM** (scripts_aggregation_mobile); package stays
+  `com.scripthost`
+- Main UI rebuilt around a `DrawerLayout`: a Discord-style left drawer
+  (~280dp) holds the "SAM" header, the "脚本列表" script list, and
+  bottom-pinned "添加脚本" / "设置" buttons; the drawer starts open on cold
+  start, dims the content while open, and reopens via edge swipe or the
+  hamburger icon
+- The script runtime is embedded in MainActivity's content area as
+  `ScriptRuntimeFragment`; `ScriptRuntimeActivity` is now a thin standalone
+  host for the same fragment. Tapping a script runs it in place; Stop Script
+  returns to the empty state
+- Settings is a full-screen sub-screen with a top-left X and rightward-swipe
+  to close, and gains a per-installed-script section showing declared and
+  granted permissions with per-permission revoke
+- Script sub-pages (`UI.pushPage`) and the script editor follow the same
+  sub-screen chrome (X at top-left, rightward swipe to close/pop)
 - `ScriptManager` now takes an injectable storage directory (plus a `Context`
   convenience constructor), making it testable on the JVM
 - `SignatureVerifier` accepts an injectable public key so sign/verify
@@ -65,12 +134,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   structure and technology stack synced with the actual repository
 
 ### Removed
+- Script category classification: the `ScriptCategory` enum, `Script.category`,
+  `ScriptManager.getScriptsByCategory`, the category spinner/filter in the main
+  UI and the category selector in the script editor. Legacy metadata/export
+  files that still carry a `category` key are parsed tolerantly (key ignored)
+- Main-screen search box and the old top-level Settings button (superseded by
+  the drawer)
 - Development-process documents (roadmap/status artifacts): `docs/STATUS.md`,
   `docs/TEST_REPORT.md`, `docs/FINAL_SUMMARY.md`, `docs/PROJECT_SUMMARY.md`,
   `docs/deep-research-report.md`
 - Unused `androidx.security:security-crypto` dependency
 
 ### Added
+- Real script file import: "添加脚本" → "从文件导入" opens the SAF document
+  picker, copies the chosen `.js`/JSON package into app storage, and installs
+  it via `ScriptManager.installScriptFromFile`; the existing `.js` VIEW
+  intent-filter imports through the same flow
+- Script export now writes the script source to the app-specific external
+  directory (`exports/`) and shows the path
+- `PermissionManager.revokePermission(scriptId, permission)` for
+  single-permission revoke
 - Expanded native UI bridge with new components: `CheckBox`, `Spinner`,
   `ProgressBar`, and `Layout` (vertical/horizontal container)
 - Common configuration methods on every component: `setVisible`, `setEnabled`,

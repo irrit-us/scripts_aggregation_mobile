@@ -1,7 +1,9 @@
 package com.scripthost
 
 import android.app.Application
+import androidx.appcompat.app.AppCompatDelegate
 import com.scripthost.config.AesGcmValueCipher
+import com.scripthost.config.AppSettings
 import com.scripthost.config.ConfigStore
 import com.scripthost.config.KeystoreKeyProvider
 import com.scripthost.engine.ScriptManager
@@ -21,6 +23,9 @@ class ScriptHostApplication : Application() {
     lateinit var configStore: ConfigStore
         private set
 
+    lateinit var appSettings: AppSettings
+        private set
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -29,6 +34,10 @@ class ScriptHostApplication : Application() {
         scriptManager = ScriptManager(this)
         permissionManager = PermissionManager(this)
         configStore = ConfigStore(filesDir, AesGcmValueCipher(KeystoreKeyProvider().getOrCreateKey()))
+        appSettings = AppSettings(this)
+
+        // Apply persisted light/dark preference before any activity starts
+        AppCompatDelegate.setDefaultNightMode(appSettings.nightMode)
     }
 
     companion object {

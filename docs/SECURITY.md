@@ -125,6 +125,11 @@ execution.
   title/message at the requested time. No script code executes in the
   background, so a scheduled notification cannot be used to bypass the
   sandbox or execution limits.
+- **Cleartext HTTP**: the app sets `android:usesCleartextTraffic="true"`
+  because scripts frequently target local-network devices (home automation,
+  LAN servers, routers) that only serve plain HTTP. Scripts should still
+  prefer HTTPS for internet hosts; the INTERNET permission gate applies to
+  all `Network.*` calls regardless of scheme.
 
 ## Configuration Storage & API Keys
 

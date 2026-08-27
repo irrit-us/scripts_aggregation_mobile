@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get ScriptHost running in 5 minutes.
+Get SAM (scripts_aggregation_mobile, formerly ScriptHost) running in 5 minutes.
 
 ## Prerequisites
 
@@ -31,9 +31,9 @@ Click the Run button (▶) or press `Shift+F10`.
 
 ### Create a Script
 
-1. Launch ScriptHost app
-2. Tap "Add Script"
-3. Select "Create New Script"
+1. Launch the SAM app — the left drawer (script list) opens automatically
+2. Tap "添加脚本" at the bottom of the drawer
+3. Select "创建新脚本"
 4. Fill in details:
    - Name: "My First Script"
    - Version: "1.0.0"
@@ -57,31 +57,39 @@ UI.addView(button);
 
 ### Run the Script
 
-1. Find your script in the list
-2. Tap on it
-3. Select "Run"
-4. Grant permissions if requested
-5. Tap the button to see the alert!
+1. Find your script in the drawer list (swipe in from the left edge or tap the ☰ icon in the slim top bar to reopen it)
+2. Tap on it — it runs right in the content area
+3. Grant permissions if requested
+4. Tap the button to see the alert!
+
+While a script runs, the top bar shows ✕ next to the script's name. To stop a
+running script, tap "Stop Script" (or that ✕ at the top-left) and the
+content area returns to the empty state.
 
 ## Try Examples
 
-ScriptHost includes 8 example scripts:
+SAM includes 17 example scripts covering every exposed API:
 
 1. **Hello World** - Basic button and alert
 2. **Counter** - State management demo
 3. **Todo List** - Full CRUD application
 4. **Network Request** - API integration
-5. **Sensors** - Accelerometer demo
+5. **Sensors** - Accelerometer and gyroscope demo
 6. **Storage** - File I/O operations
 7. **Agent Conversation** - Wrapped agent chat via an OpenAI-compatible API
 8. **Server Monitor** - Polls and displays server health status
+9. **UI Controls** - Widget showcase
+10. **Monitor Port Chart** - Live chart of port health
+11. **Daily Fitness** - Daily recurring notification reminder
+12. **Stock Trends** - Chart with fetched data
+13. **Remote tmux Console** - SSH-based terminal
+14. **Sub-Screens** - Multi-page navigation
+15. **Markdown Demo** - Markdown rendering
+16. **Scheduled Notifications** - One-shot and daily scheduled alerts
+17. **Device Info** - Read-only system/device information
 
-To try an example:
-
-1. Copy code from `scripts/examples/`
-2. Create new script in app
-3. Paste code and save
-4. Run and explore!
+To try an example, use 添加脚本 → 从文件导入 and pick a file from
+`scripts/examples/`, then run it from the drawer list.
 
 ## Common Tasks
 
@@ -119,7 +127,7 @@ console.log(content); // "Hello World"
 
 ### Configure API Keys
 
-Add keys in the app: open Settings from the main screen, tap **Add Key**, and
+Add keys in the app: open **设置** from the bottom of the drawer, tap **Add Key**, and
 enter a name and value (for example `OPENAI_API_KEY`). Scripts read them via
 the `Config` bridge:
 

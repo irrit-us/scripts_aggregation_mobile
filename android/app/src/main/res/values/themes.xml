@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ScriptHost" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.ScriptHost" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">#007AFF</item>
         <item name="colorPrimaryVariant">#0051D5</item>
         <item name="colorOnPrimary">#FFFFFF</item>

@@ -23,7 +23,7 @@ formLayout.addView(buttonRow);
 // ---------------------------------------------------------------
 // Text configuration
 // ---------------------------------------------------------------
-let title = new Label("Configuration Panel");
+let title = new Label("UI Controls Demo");
 title.setTextSize(22);
 title.setBold(true);
 title.setTextColor("#263238");
@@ -65,38 +65,38 @@ nameField.setOnChange(function(value) {
 // ---------------------------------------------------------------
 // Spinner
 // ---------------------------------------------------------------
-let themeLabel = new Label("Select theme:");
+let themeLabel = new Label("Select a color:");
 themeLabel.setTextSize(14);
 formLayout.addView(themeLabel);
 
 let themeSpinner = new Spinner();
-themeSpinner.setItems(["Light", "Dark", "System"]);
+themeSpinner.setItems(["Red", "Green", "Blue"]);
 themeSpinner.setSelection(0);
 themeSpinner.setWidth(-1);
 formLayout.addView(themeSpinner);
 
 themeSpinner.setOnChange(function(index, label) {
-    console.log("Theme selected: " + label + " (" + index + ")");
+    console.log("Color selected: " + label + " (" + index + ")");
 });
 
 // ---------------------------------------------------------------
 // CheckBox and Switch
 // ---------------------------------------------------------------
-let notifyCheck = new CheckBox("Enable notifications");
+let notifyCheck = new CheckBox("Option A");
 notifyCheck.setChecked(true);
 formLayout.addView(notifyCheck);
 
 notifyCheck.setOnChange(function(checked) {
-    console.log("Notifications enabled: " + checked);
+    console.log("Option A checked: " + checked);
 });
 
-let syncSwitch = new Switch("Auto sync");
+let syncSwitch = new Switch("Option B");
 syncSwitch.setChecked(false);
 syncSwitch.setTextColor("#37474F");
 formLayout.addView(syncSwitch);
 
 syncSwitch.setOnChange(function(checked) {
-    console.log("Auto sync enabled: " + checked);
+    console.log("Option B switched on: " + checked);
 });
 
 // ---------------------------------------------------------------
@@ -161,12 +161,12 @@ applyButton.setOnTap(function() {
     let volume = volumeSlider.getValue();
     let notified = notifyCheck.getChecked();
     let synced = syncSwitch.getChecked();
-    showConfirm("Apply settings", "Save the current configuration?", function(confirmed) {
+    showConfirm("Submit", "Submit the current values?", function(confirmed) {
         if (confirmed) {
-            console.log("Applied theme " + selected + ", volume " + volume);
-            showToast("Configuration saved", "long");
+            console.log("Applied color " + selected + ", volume " + volume);
+            showToast("Values submitted", "long");
         } else {
-            console.log("Settings discarded");
+            console.log("Submission discarded");
         }
     });
 });

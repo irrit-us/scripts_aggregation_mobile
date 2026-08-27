@@ -107,6 +107,35 @@ class PermissionManagerTest {
 
     @Config(sdk = [34])
     @Test
+    fun revokePermission_removesOnlyThatPermission() {
+        shadowOf(application).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val script = Script(
+            id = "test-script",
+            name = "Test Script",
+            version = "1.0.0",
+            author = "Test Author",
+            description = "A test script",
+            permissions = listOf(Permission.INTERNET, Permission.NOTIFICATIONS),
+            sourceCode = "console.log('hello');"
+        )
+
+        permissionManager.requestPermissions(activity, script) { _, _ -> }
+        assertThat(permissionManager.getGrantedPermissions(script.id))
+            .containsExactly(Permission.INTERNET, Permission.NOTIFICATIONS)
+
+        permissionManager.revokePermission(script.id, Permission.NOTIFICATIONS)
+        assertThat(permissionManager.getGrantedPermissions(script.id))
+            .containsExactly(Permission.INTERNET)
+
+        // Revoking a permission that was never granted is a no-op
+        permissionManager.revokePermission(script.id, Permission.CAMERA)
+        assertThat(permissionManager.getGrantedPermissions(script.id))
+            .containsExactly(Permission.INTERNET)
+    }
+
+    @Config(sdk = [34])
+    @Test
     fun getGrantedPermissions_reflectsRequestedPermissions() {
         shadowOf(application).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()

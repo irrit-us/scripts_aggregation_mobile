@@ -1,223 +1,89 @@
 package com.scripthost.ui
 
+import android.graphics.Typeface
 import android.os.Bundle
-import android.widget.*
-import androidx.activity.OnBackPressedCallback
+import android.view.Gravity
+import android.view.View
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.scripthost.ScriptHostApplication
-import com.scripthost.bridge.ConfigBridge
-import com.scripthost.bridge.NotificationBridge
-import com.scripthost.bridge.SSHBridge
-import com.scripthost.bridge.SystemBridge
-import com.scripthost.bridge.UIBridge
-import com.scripthost.engine.ExecutionResult
-import com.scripthost.engine.JavaScriptEngine
-import com.scripthost.models.ScriptContext
-import com.scripthost.models.ScriptState
-import com.scripthost.util.AndroidLogger
-import kotlinx.coroutines.launch
 
 /**
- * Script Runtime Activity - Execute scripts with UI rendering
+ * Script Runtime Activity - thin standalone host for [ScriptRuntimeFragment].
+ *
+ * Kept for compatibility (manifest entry, external `SCRIPT_ID` intents); the
+ * main UI embeds the same fragment directly in the drawer content area. Like
+ * MainActivity, it owns a single slim header bar (✕ + script name) — the
+ * fragment itself renders no header.
  */
-class ScriptRuntimeActivity : AppCompatActivity() {
-
-    private val logger = AndroidLogger()
-
-    private lateinit var scriptContainer: FrameLayout
-    private lateinit var consoleOutput: TextView
-    private lateinit var stopButton: Button
+class ScriptRuntimeActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     private val app get() = application as ScriptHostApplication
-    private val scriptManager get() = app.scriptManager
-    private val permissionManager get() = app.permissionManager
 
-    private var scriptEngine: JavaScriptEngine? = null
-    private var scriptContext: ScriptContext? = null
-    private var uiBridge: UIBridge? = null
-
-    /** Back pops a script page first; only at the root page does it finish. */
-    private val backCallback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
-            val bridge = uiBridge
-            if (bridge == null || !bridge.popPage()) {
-                isEnabled = false
-                onBackPressedDispatcher.onBackPressed()
-            }
-        }
-    }
+    private lateinit var headerScriptName: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setupUI()
-        onBackPressedDispatcher.addCallback(this, backCallback)
 
         val scriptId = intent.getStringExtra("SCRIPT_ID")
-        if (scriptId != null) {
-            loadAndRunScript(scriptId)
-        } else {
+        if (scriptId == null) {
             Toast.makeText(this, "No script specified", Toast.LENGTH_SHORT).show()
-            finish()
-        }
-    }
-
-    private fun setupUI() {
-        val rootLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
-        // Page host for script UI (UIBridge stacks pages inside it)
-        scriptContainer = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-            setPadding(16, 16, 16, 16)
-        }
-        rootLayout.addView(scriptContainer)
-
-        // Console output
-        val consoleLabel = TextView(this).apply {
-            text = "Console:"
-            setPadding(16, 8, 16, 8)
-            setBackgroundColor(android.graphics.Color.LTGRAY)
-        }
-        rootLayout.addView(consoleLabel)
-
-        val consoleScroll = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                200
-            )
-        }
-
-        consoleOutput = TextView(this).apply {
-            typeface = android.graphics.Typeface.MONOSPACE
-            textSize = 12f
-            setPadding(16, 8, 16, 8)
-        }
-        consoleScroll.addView(consoleOutput)
-        rootLayout.addView(consoleScroll)
-
-        // Stop button
-        stopButton = Button(this).apply {
-            text = "Stop Script"
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        rootLayout.addView(stopButton)
-
-        setContentView(rootLayout)
-
-        stopButton.setOnClickListener {
-            stopScript()
-        }
-    }
-
-    private fun loadAndRunScript(scriptId: String) {
-        val script = scriptManager.getScript(scriptId)
-        if (script == null) {
-            Toast.makeText(this, "Script not found", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
-        // Request permissions
-        permissionManager.requestPermissions(this, script) { granted, denied ->
-            if (denied.isNotEmpty()) {
-                Toast.makeText(
-                    this,
-                    "Some permissions were denied: ${denied.joinToString { it.name }}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+        val rootLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
 
-            // Create script context
-            scriptContext = ScriptContext(
-                script = script,
-                grantedPermissions = granted.toMutableSet(),
-                startTime = System.currentTimeMillis()
-            )
+        // Single slim header: ✕ closes the current page (popPage), or the
+        // session at the root page (same as MainActivity's running header)
+        val headerRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(4, 0, 8, 0)
+        }
+        headerRow.addView(SubScreenChrome.closeButton(this) { requestRuntimeClose() })
+        headerScriptName = TextView(this).apply {
+            textSize = 16f
+            setTypeface(null, Typeface.BOLD)
+        }
+        headerRow.addView(headerScriptName)
+        rootLayout.addView(headerRow)
+        rootLayout.addView(View(this).apply {
+            setBackgroundColor(0x22000000)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1))
 
-            // Run script
-            runScript()
+        val container = FrameLayout(this).apply { id = View.generateViewId() }
+        rootLayout.addView(container, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            0,
+            1f
+        ))
+        setContentView(rootLayout)
+
+        if (savedInstanceState == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(container.id, ScriptRuntimeFragment.newInstance(scriptId), FRAGMENT_TAG)
+                .commit()
         }
     }
 
-    private fun runScript() {
-        val context = scriptContext ?: return
-
-        lifecycleScope.launch {
-            try {
-                // Initialize engine
-                scriptEngine = JavaScriptEngine(this@ScriptRuntimeActivity)
-
-                // Register bridges
-                val scriptId = context.script.id
-                val uiBridge = UIBridge(this@ScriptRuntimeActivity, scriptContainer)
-                this@ScriptRuntimeActivity.uiBridge = uiBridge
-                val systemBridge = SystemBridge(this@ScriptRuntimeActivity, permissionManager, scriptId)
-                val configBridge = ConfigBridge(app.configStore, permissionManager, scriptId)
-                val notificationBridge = NotificationBridge(this@ScriptRuntimeActivity, permissionManager, scriptId)
-                val sshBridge = SSHBridge(permissionManager, scriptId)
-
-                scriptEngine?.registerBridge(uiBridge)
-                scriptEngine?.registerBridge(systemBridge)
-                scriptEngine?.registerBridge(configBridge)
-                scriptEngine?.registerBridge(notificationBridge)
-                scriptEngine?.registerBridge(sshBridge)
-
-                // Execute script
-                appendConsole("Starting script: ${context.script.name}")
-
-                val result = scriptEngine?.execute(context)
-
-                when (result) {
-                    is ExecutionResult.Success -> {
-                        appendConsole("Script completed successfully")
-                        appendConsole("Output: ${result.output}")
-                    }
-                    is ExecutionResult.Error -> {
-                        appendConsole("Script error: ${result.message}")
-                        Toast.makeText(
-                            this@ScriptRuntimeActivity,
-                            "Error: ${result.message}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                    null -> {
-                        appendConsole("Script execution failed")
-                    }
-                }
-
-            } catch (e: Exception) {
-                appendConsole("Exception: ${e.message}")
-                logger.error(TAG, "Script execution failed", e)
-            }
-        }
+    /** Forward a header ✕ tap to the fragment (pop page / end session). */
+    private fun requestRuntimeClose() {
+        (supportFragmentManager.findFragmentByTag(FRAGMENT_TAG) as? ScriptRuntimeFragment)
+            ?.closePageOrSession()
     }
 
-    private fun stopScript() {
-        scriptContext?.let { context ->
-            scriptEngine?.stop(context.script.id)
-            appendConsole("Script stopped by user")
-        }
+    override fun onScriptSessionStarted(scriptName: String) {
+        headerScriptName.text = scriptName
+    }
+
+    override fun onScriptSessionEnded() {
         finish()
-    }
-
-    private fun appendConsole(message: String) {
-        runOnUiThread {
-            val current = consoleOutput.text.toString()
-            consoleOutput.text = if (current.isEmpty()) {
-                message
-            } else {
-                "$current\n$message"
-            }
-        }
     }
 
     override fun onRequestPermissionsResult(
@@ -226,15 +92,10 @@ class ScriptRuntimeActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        permissionManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        scriptEngine?.release()
+        app.permissionManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     companion object {
-        private const val TAG = "ScriptRuntimeActivity"
+        private const val FRAGMENT_TAG = "script_runtime"
     }
 }

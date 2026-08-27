@@ -2,13 +2,16 @@ package com.scripthost.engine
 
 import android.content.Context
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
+import android.util.Log
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
+import com.scripthost.config.AppSettings
 import com.scripthost.models.ScriptContext
 import com.scripthost.models.ScriptState
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,25 +21,50 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * JavaScript engine implementation using J2V8.
  * Provides sandboxed script execution with resource monitoring.
  *
- * Note: J2V8 runtimes are not thread-safe and enforce that every V8 call
- * happens on the thread that created the runtime. This engine creates the
- * runtime on the main thread and executes scripts there; bridge callbacks are
- * marshaled to the main thread as well (see UIBridge and SystemBridge).
+ * Threading model — J2V8 runtimes are not thread-safe and enforce that every
+ * V8/V8Value touch happens on ONE thread. This engine owns a dedicated
+ * [HandlerThread] ("v8-engine") and confines ALL of it there: runtime
+ * creation, bridge registration, `executeScript`, timer dispatch, and
+ * teardown. Consequences:
+ *
+ *  - The main thread never blocks on script execution. [execute] posts the
+ *    blocking native call to the engine thread and suspends until it
+ *    completes, so a hung script (`while(true){}`) cannot ANR the app.
+ *  - JS→Java bridge methods are invoked ON the engine thread; bridges
+ *    marshal view mutations to the main thread (see UIBridge.onUiThread) and
+ *    Java→JS callbacks (view events, sensors, HTTP/SSH completions, dialogs)
+ *    back onto the engine thread.
+ *  - Timer callbacks fire when the engine thread is free — i.e. after the
+ *    currently running script yields — matching JS run-to-completion
+ *    semantics.
+ *
+ * Interruption: `V8.terminateExecution()` (J2V8 6.2.1) is thread-safe and is
+ * THE way to interrupt `executeScript`; [stop] and the 30-second watchdog use
+ * it. Known J2V8 limitation: a script stuck in a NON-interruptible native
+ * operation still keeps the engine thread busy; teardown is queued and the UI
+ * stays responsive, but the thread leaks until the process dies. A hard
+ * interrupt is impossible without killing the process.
  */
 class JavaScriptEngine(private val context: Context) : ScriptEngine {
 
-    private val runtime: V8 = V8.createV8Runtime()
-    private val mainHandler = Handler(Looper.getMainLooper())
+    /** Dedicated V8 thread; every V8/V8Value access runs on its Looper. */
+    private val engineThread = HandlerThread("v8-engine").apply { start() }
+    private val engineHandler = Handler(engineThread.looper)
     private val engineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    /** Created on the engine thread (J2V8 thread affinity). */
+    private lateinit var runtime: V8
+    private val released = AtomicBoolean(false)
 
     // Resource limits
     private val maxExecutionTimeMs = 30_000L // 30 seconds
@@ -44,20 +72,30 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     // Active script contexts
     private val activeContexts = ConcurrentHashMap<String, ScriptContext>()
 
-    // Bridge registry
-    private val bridges = mutableListOf<ScriptBridge>()
+    // Bridge registry (written on the caller's thread, read on the engine thread)
+    private val bridges = CopyOnWriteArrayList<ScriptBridge>()
 
     // Timer bookkeeping so scripts can clear timers and the engine can clean up
     private val timerIdGenerator = AtomicInteger(0)
     private val activeTimers = ConcurrentHashMap<Int, Runnable>()
     private val activeTimerCallbacks = ConcurrentHashMap<Int, V8Object>()
 
+    // Debug mode (Settings -> 应用 -> 调试模式): when enabled, script console
+    // messages are mirrored to Logcat. Read once at engine setup; toggling it
+    // applies to the next script run.
+    private val debugConsole = AppSettings(context).debugMode
+
     init {
-        setupGlobalEnvironment()
+        engineHandler.post {
+            runtime = V8.createV8Runtime()
+            setupGlobalEnvironment()
+        }
     }
 
     /**
      * Setup global JavaScript environment with console and timer APIs.
+     * Runs on the engine thread (first queued task, so [runtime] is
+     * initialized before any later task observes it).
      */
     private fun setupGlobalEnvironment() {
         // Console API
@@ -82,71 +120,79 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     /**
-     * Register a bridge to expose native functionality.
+     * Register a bridge to expose native functionality. The actual
+     * registration is marshaled to the engine thread.
      */
     override fun registerBridge(bridge: ScriptBridge) {
         bridges.add(bridge)
-        bridge.register(runtime)
+        engineHandler.post {
+            if (!released.get() && ::runtime.isInitialized) {
+                bridge.register(runtime)
+            }
+        }
     }
 
     /**
      * Execute a script with sandboxing and monitoring.
+     *
+     * The blocking native `executeScript` runs on the engine thread; this
+     * coroutine merely awaits the outcome, so [withTimeout] genuinely fires
+     * and the calling thread (typically main) stays responsive. On timeout,
+     * [terminateExecution] interrupts the native call.
      */
-    override suspend fun execute(scriptContext: ScriptContext): ExecutionResult = withContext(Dispatchers.Main) {
+    override suspend fun execute(scriptContext: ScriptContext): ExecutionResult {
         val script = scriptContext.script
 
-        try {
-            scriptContext.state = ScriptState.RUNNING
-            scriptContext.startTime = System.currentTimeMillis()
-            activeContexts[script.id] = scriptContext
+        scriptContext.state = ScriptState.RUNNING
+        scriptContext.startTime = System.currentTimeMillis()
+        activeContexts[script.id] = scriptContext
 
-            // Start resource monitoring
-            val monitorJob = startResourceMonitoring(scriptContext)
+        if (released.get()) {
+            activeContexts.remove(script.id)
+            return ExecutionResult.Error("Engine already released")
+        }
 
-            // Execute with timeout
-            val result = withTimeout(maxExecutionTimeMs) {
-                try {
-                    val output = runtime.executeScript(script.sourceCode, script.name, 0)
-                    val resultString = output?.toString() ?: "undefined"
-                    (output as? V8Object)?.release()
-                    ExecutionResult.Success(resultString)
-                } catch (e: CancellationException) {
-                    // Let timeouts/cancellation propagate to the outer handler
-                    throw e
-                } catch (e: Exception) {
-                    ExecutionResult.Error(e.message ?: "Unknown execution error")
-                }
+        // Start resource monitoring
+        val monitorJob = startResourceMonitoring(scriptContext)
+
+        val deferred = CompletableDeferred<ExecutionResult>()
+        engineHandler.post {
+            try {
+                val output = runtime.executeScript(script.sourceCode, script.name, 0)
+                val resultString = output?.toString() ?: "undefined"
+                (output as? V8Object)?.release()
+                deferred.complete(ExecutionResult.Success(resultString))
+            } catch (e: Exception) {
+                deferred.complete(ExecutionResult.Error(e.message ?: "Unknown execution error"))
             }
+        }
 
-            // Stop monitoring
-            monitorJob.cancel()
+        return try {
+            val result = withTimeout(maxExecutionTimeMs) { deferred.await() }
 
             scriptContext.state = ScriptState.STOPPED
             scriptContext.endTime = System.currentTimeMillis()
-
             result
 
         } catch (e: TimeoutCancellationException) {
+            // Cooperative cancellation cannot interrupt a blocking native
+            // call; terminateExecution makes executeScript throw on the
+            // engine thread so the engine can be reused/torn down.
+            terminateExecution()
             scriptContext.state = ScriptState.ERROR
             scriptContext.errorMessage = "Script execution timeout"
             ExecutionResult.Error("Execution timeout after ${maxExecutionTimeMs}ms")
 
-        } catch (e: CancellationException) {
-            // Preserve structured-concurrency cancellation (e.g. activity destroyed)
-            throw e
-
-        } catch (e: Exception) {
-            scriptContext.state = ScriptState.ERROR
-            scriptContext.errorMessage = e.message
-            ExecutionResult.Error(e.message ?: "Unknown error")
-
         } finally {
+            monitorJob.cancel()
             activeContexts.remove(script.id)
         }
     }
 
     /**
-     * Stop a running script.
+     * Stop a running script. Cooperative: timers are cancelled and an
+     * in-flight `executeScript` is interrupted via [terminateExecution].
+     * Safe to call from any thread.
      */
     override fun stop(scriptId: String) {
         activeContexts[scriptId]?.let { context ->
@@ -154,10 +200,25 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
             context.endTime = System.currentTimeMillis()
             activeContexts.remove(scriptId)
 
-            // J2V8 cannot safely interrupt an in-flight executeScript call;
-            // the resource monitor and withTimeout enforce the execution limit.
             // Pending timers are cancelled so callbacks cannot outlive the script.
             clearAllTimers()
+            terminateExecution()
+        }
+    }
+
+    /**
+     * Interrupt an in-flight `executeScript`. `V8.terminateExecution()` is
+     * explicitly thread-safe (it is V8's interrupt mechanism and performs no
+     * thread-affinity check), so this can be called from any thread. When no
+     * script is executing the request is consumed by the next execution —
+     * which is fine here because [stop]/timeout always precede teardown.
+     */
+    private fun terminateExecution() {
+        if (!::runtime.isInitialized || runtime.isReleased) return
+        try {
+            runtime.terminateExecution()
+        } catch (e: Exception) {
+            // Runtime already released or terminated; nothing to interrupt
         }
     }
 
@@ -186,7 +247,10 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
      */
     @Suppress("unused")
     fun consoleLog(message: String) {
-        println("[Script] $message")
+        if (debugConsole) {
+            println("[Script] $message")
+            Log.d(TAG_SCRIPT_CONSOLE, message)
+        }
     }
 
     /**
@@ -194,7 +258,10 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
      */
     @Suppress("unused")
     fun consoleWarn(message: String) {
-        println("[Script WARN] $message")
+        if (debugConsole) {
+            println("[Script WARN] $message")
+            Log.d(TAG_SCRIPT_CONSOLE, "[WARN] $message")
+        }
     }
 
     /**
@@ -202,11 +269,16 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
      */
     @Suppress("unused")
     fun consoleError(message: String) {
-        System.err.println("[Script ERROR] $message")
+        if (debugConsole) {
+            System.err.println("[Script ERROR] $message")
+            Log.d(TAG_SCRIPT_CONSOLE, "[ERROR] $message")
+        }
     }
 
     /**
      * setTimeout implementation. Returns a timer ID usable with clearTimeout.
+     * Runs on the engine thread (JS call); the callback is dispatched on the
+     * engine thread once the current execution yields.
      */
     @Suppress("unused")
     fun setTimeout(callback: V8Object, delay: Int): Int {
@@ -228,7 +300,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
         }
         activeTimers[timerId] = runnable
         activeTimerCallbacks[timerId] = retained
-        mainHandler.postDelayed(runnable, delay.coerceAtLeast(0).toLong())
+        engineHandler.postDelayed(runnable, delay.coerceAtLeast(0).toLong())
         return timerId
     }
 
@@ -249,12 +321,12 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
                 if (activeTimers[timerId] !== this) return
 
                 (retained as? V8Function)?.call(runtime, null)
-                mainHandler.postDelayed(this, interval.coerceAtLeast(0).toLong())
+                engineHandler.postDelayed(this, interval.coerceAtLeast(0).toLong())
             }
         }
         activeTimers[timerId] = runnable
         activeTimerCallbacks[timerId] = retained
-        mainHandler.post(runnable)
+        engineHandler.post(runnable)
         return timerId
     }
 
@@ -263,7 +335,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
      */
     @Suppress("unused")
     fun clearTimeout(timerId: Int) {
-        activeTimers.remove(timerId)?.let { mainHandler.removeCallbacks(it) }
+        activeTimers.remove(timerId)?.let { engineHandler.removeCallbacks(it) }
         activeTimerCallbacks.remove(timerId)?.let { if (!it.isReleased) it.release() }
     }
 
@@ -276,51 +348,47 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     }
 
     private fun clearAllTimers() {
-        activeTimers.forEach { (_, runnable) -> mainHandler.removeCallbacks(runnable) }
+        activeTimers.forEach { (_, runnable) -> engineHandler.removeCallbacks(runnable) }
         activeTimers.clear()
         val callbacks = activeTimerCallbacks.values.toList()
         activeTimerCallbacks.clear()
         if (callbacks.isEmpty()) return
-        // V8 handles may only be released on the V8 (main) thread; stop() can
+        // V8 handles may only be released on the engine thread; stop() can
         // arrive from the resource-monitor coroutine on a background thread.
         val releaseAll = Runnable {
             callbacks.forEach { if (!it.isReleased) it.release() }
         }
-        if (Looper.myLooper() == Looper.getMainLooper()) {
+        if (Looper.myLooper() == engineThread.looper) {
             releaseAll.run()
         } else {
-            mainHandler.post(releaseAll)
+            engineHandler.post(releaseAll)
         }
     }
 
     /**
-     * Evaluate a JavaScript expression.
-     */
-    override fun evaluate(expression: String): Any? {
-        return try {
-            val result = runtime.executeScript(expression)
-            val value = when {
-                result == null -> null
-                result is V8Object -> result.toString()
-                else -> result
-            }
-            if (result is V8Object) result.release()
-            value
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    /**
-     * Release resources.
+     * Release resources. All V8 teardown is marshaled to the engine thread
+     * and this method never blocks waiting for it: a script stuck in a
+     * non-interruptible native operation keeps the thread busy, and blocking
+     * the main thread here would recreate the ANR this design removes.
      */
     override fun release() {
+        if (!released.compareAndSet(false, true)) return
         engineScope.cancel()
         clearAllTimers()
-        bridges.forEach { it.unregister() }
-        bridges.clear()
-        activeContexts.clear()
-        runtime.release()
+        terminateExecution() // unblock a hung script so teardown can run
+        engineHandler.post {
+            bridges.forEach { it.unregister() }
+            bridges.clear()
+            activeContexts.clear()
+            if (::runtime.isInitialized && !runtime.isReleased) {
+                runtime.release()
+            }
+            engineThread.quitSafely()
+        }
+    }
+
+    companion object {
+        private const val TAG_SCRIPT_CONSOLE = "ScriptConsole"
     }
 }
 
@@ -330,7 +398,6 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
 interface ScriptEngine {
     suspend fun execute(scriptContext: ScriptContext): ExecutionResult
     fun stop(scriptId: String)
-    fun evaluate(expression: String): Any?
     fun registerBridge(bridge: ScriptBridge)
     fun release()
 }
@@ -344,7 +411,8 @@ sealed class ExecutionResult {
 }
 
 /**
- * Bridge interface for exposing native APIs to scripts.
+ * Bridge interface for exposing native APIs to scripts. [register] and
+ * [unregister] are invoked on the engine's V8 thread.
  */
 interface ScriptBridge {
     fun register(runtime: V8)

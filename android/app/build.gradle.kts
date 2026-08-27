@@ -81,6 +81,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
 
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -91,9 +92,6 @@ dependencies {
 
     // J2V8 - JavaScript Engine
     implementation("com.eclipsesource.j2v8:j2v8:6.2.1@aar")
-
-    // JSON
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
     // WorkManager - daily scheduled notifications
     implementation("androidx.work:work-runtime-ktx:2.9.0")

@@ -4,7 +4,6 @@ import com.google.common.truth.Truth.assertThat
 import com.scripthost.models.InstallResult
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
-import com.scripthost.models.ScriptCategory
 import com.scripthost.security.SignatureVerifier
 import com.scripthost.util.ConsoleLogger
 import kotlinx.coroutines.runBlocking
@@ -35,8 +34,7 @@ class ScriptManagerTest {
         author: String = "Test Author",
         description: String = "A test script",
         permissions: List<Permission> = listOf(Permission.INTERNET),
-        sourceCode: String = "console.log('hello');",
-        category: ScriptCategory = ScriptCategory.UTILITY
+        sourceCode: String = "console.log('hello');"
     ): InstallResult = runBlocking {
         scriptManager.installScript(
             name = name,
@@ -45,7 +43,6 @@ class ScriptManagerTest {
             description = description,
             permissions = permissions,
             sourceCode = sourceCode,
-            category = category,
             verifySignature = false
         )
     }
@@ -179,13 +176,20 @@ class ScriptManagerTest {
     }
 
     @Test
-    fun getScriptsByCategory_filters() = runBlocking {
-        installUnsigned(name = "Utility Tool", author = "A", category = ScriptCategory.UTILITY)
-        installUnsigned(name = "Game", author = "B", category = ScriptCategory.ENTERTAINMENT)
+    fun legacyMetadataWithCategory_isTolerated() = runBlocking {
+        installUnsigned()
 
-        val utility = scriptManager.getScriptsByCategory(ScriptCategory.UTILITY)
-        assertThat(utility).hasSize(1)
-        assertThat(utility.first().name).isEqualTo("Utility Tool")
+        // Simulate metadata written by an older version that still carried a
+        // "category" key; the current parser must ignore it and load the script.
+        val metadataFile = File(tempFolder.root, "scripts_metadata.json")
+        val legacy = metadataFile.readText().replace("\"description\": \"A test script\"",
+            "\"description\": \"A test script\",\n    \"category\": \"ENTERTAINMENT\"")
+        metadataFile.writeText(legacy)
+
+        val reloaded = ScriptManager(tempFolder.root, logger = ConsoleLogger())
+        val script = reloaded.getScript("testauthor.hello_world")
+        assertThat(script).isNotNull()
+        assertThat(script?.name).isEqualTo("Hello World")
     }
 
     @Test

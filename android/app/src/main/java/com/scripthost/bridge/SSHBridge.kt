@@ -1,5 +1,7 @@
 package com.scripthost.bridge
 
+import android.os.Handler
+import android.os.Looper
 import com.eclipsesource.v8.JavaCallback
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
@@ -14,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * SSH Bridge - Exposes SSH connections to scripts (e.g. remote tmux control).
@@ -32,8 +33,17 @@ class SSHBridge(
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val sessionManager = SSHSessionManager()
 
+    /**
+     * Handler of the engine's V8 thread, captured in [register] (which the
+     * engine invokes on that thread). Async connect/exec completions are
+     * re-marshaled onto it.
+     */
+    private var engineHandler: Handler? = null
+
     override fun register(runtime: V8) {
         this.runtime = runtime
+        // register() is invoked on the engine's V8 thread
+        engineHandler = Handler(Looper.myLooper() ?: Looper.getMainLooper())
 
         // SSH API
         val sshObject = V8Object(runtime)
@@ -124,11 +134,11 @@ class SSHBridge(
         scope.launch {
             try {
                 sessionManager.connect(host, port, username, password)
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeError(callback, null)
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeError(callback, e.message ?: "SSH connect failed")
                 }
             }
@@ -148,11 +158,11 @@ class SSHBridge(
         scope.launch {
             try {
                 val output = sessionManager.exec(command)
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeCallback(callback, output, null)
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+                onEngineThread {
                     invokeCallback(callback, null, e.message ?: "SSH exec failed")
                 }
             }
@@ -167,6 +177,20 @@ class SSHBridge(
     }
 
     // Helper methods
+
+    /**
+     * Run [block] on the engine's V8 thread. This is a no-op when already on
+     * it. Async SSH completions arrive off it and MUST be re-marshaled:
+     * J2V8 throws on foreign-thread access.
+     */
+    private fun onEngineThread(block: () -> Unit) {
+        val handler = engineHandler
+        if (handler == null || Looper.myLooper() == handler.looper) {
+            block()
+        } else {
+            handler.post(block)
+        }
+    }
 
     /**
      * Extract the trailing V8Function argument, or null when missing.

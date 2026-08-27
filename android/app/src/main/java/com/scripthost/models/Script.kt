@@ -16,22 +16,8 @@ data class Script(
     val signature: String? = null,
     val createdAt: Date = Date(),
     val updatedAt: Date = Date(),
-    val iconUrl: String? = null,
-    val category: ScriptCategory = ScriptCategory.UTILITY
+    val iconUrl: String? = null
 )
-
-/**
- * Script categories for organization
- */
-enum class ScriptCategory {
-    UTILITY,
-    PRODUCTIVITY,
-    ENTERTAINMENT,
-    SYSTEM,
-    NETWORK,
-    UI_DEMO,
-    OTHER
-}
 
 /**
  * Permissions that scripts can request

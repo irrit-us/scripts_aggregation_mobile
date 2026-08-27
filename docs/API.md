@@ -393,6 +393,32 @@ UI.addView(chart);
 
 ---
 
+### Markdown
+
+Lightweight Markdown view rendered by a small built-in parser (no external dependencies). Links are clickable.
+
+```javascript
+let md = new Markdown(markdown)
+```
+
+`markdown` is the initial Markdown text.
+
+**Supported syntax:** headings `#`..`####`, `**bold**`, `*italic*` / `_italic_`, `~~strikethrough~~`, `` `inline code` ``, fenced ``` code blocks ```, unordered lists (`-`/`*`, one nesting level), ordered lists (`1.`), `> blockquote`, `[text](url)` links, horizontal rules (`---`), and paragraphs.
+
+**Methods:**
+- `setMarkdown(text: string)` - Replace the rendered content
+
+**Permissions Required:** None
+
+**Example:**
+```javascript
+let md = new Markdown("# Report\n**Status:** OK\n- [details](https://example.com)");
+UI.addView(md);
+md.setMarkdown("Updated *content*");
+```
+
+---
+
 ## UI Namespace
 
 The global `UI` object manages the root container and the script's page stack.
@@ -824,6 +850,91 @@ console.log("SDK Version: " + info.sdkVersion);
 
 ---
 
+### Device.getTime()
+
+Current time as epoch milliseconds.
+
+**Returns:** Number (milliseconds since the Unix epoch)
+
+**Example:**
+```javascript
+console.log("Now: " + Device.getTime());
+```
+
+---
+
+### Device.getTimeZone()
+
+Current time zone ID.
+
+**Returns:** String (e.g. `"Asia/Shanghai"`)
+
+**Example:**
+```javascript
+console.log("Time zone: " + Device.getTimeZone());
+```
+
+---
+
+### Device.getDeviceName()
+
+User-visible device name (Settings device name, falling back to the model).
+
+**Returns:** String
+
+**Example:**
+```javascript
+console.log("Device: " + Device.getDeviceName());
+```
+
+---
+
+### Device.getMemoryInfo()
+
+Memory information.
+
+**Returns:** Object `{ totalMB, availableMB, lowMemory }` (sizes in MiB)
+
+**Example:**
+```javascript
+let mem = Device.getMemoryInfo();
+console.log("Free: " + mem.availableMB + " / " + mem.totalMB + " MB");
+```
+
+---
+
+### Device.getStorageInfo()
+
+Internal data-storage information.
+
+**Returns:** Object `{ totalMB, freeMB, usedMB }` (sizes in MiB)
+
+**Example:**
+```javascript
+let storage = Device.getStorageInfo();
+console.log("Used: " + storage.usedMB + " / " + storage.totalMB + " MB");
+```
+
+---
+
+### Device.getSystemInfo()
+
+System version and architecture information. Manufacturer and model are in
+`Device.getInfo()`.
+
+**Returns:** Object `{ androidVersion, sdkVersion, abi, supportedAbis }`
+(`androidVersion` is the release string, `abi` the primary ABI,
+`supportedAbis` an array of all supported ABIs)
+
+**Example:**
+```javascript
+let sys = Device.getSystemInfo();
+console.log("Android " + sys.androidVersion + " (SDK " + sys.sdkVersion + ")");
+console.log("ABI: " + sys.abi + " of " + sys.supportedAbis.join(", "));
+```
+
+---
+
 ## Notify API
 
 Posts immediate local notifications.
@@ -856,9 +967,57 @@ if (posted) {
 
 ## Scheduler API
 
-Schedules recurring local notifications. Scheduling is backed by WorkManager,
-so notifications fire even while the script is not running; no script code
-executes in the background.
+Schedules local notifications, one-shot or recurring. Scheduling is backed by
+WorkManager, so notifications fire even while the script is not running; no
+script code executes in the background. WorkManager timing is inexact
+(battery-friendly): treat all delays as minute-scale precision, not an exact
+alarm clock.
+
+### Scheduler.scheduleIn(id, delayMs, title, message)
+
+Schedule a one-shot notification `delayMs` milliseconds from now. Calling
+again with the same `id` replaces the existing schedule.
+
+**Parameters:**
+- `id` (string) - Unique identifier for the schedule
+- `delayMs` (number) - Delay in milliseconds (>= 0)
+- `title` (string) - Notification title
+- `message` (string) - Notification body text
+
+**Returns:** Boolean success status (false when permission is missing or the delay is invalid)
+
+**Permissions Required:** `NOTIFICATIONS` (same Android 13+ runtime dialog as
+`Notify`)
+
+**Example:**
+```javascript
+Scheduler.scheduleIn("standup", 15 * 60000, "Standup", "Starts in 15 minutes");
+```
+
+---
+
+### Scheduler.scheduleAt(id, epochMs, title, message)
+
+Schedule a one-shot notification at an absolute time. Times in the past fire
+as soon as possible.
+
+**Parameters:**
+- `id` (string) - Unique identifier for the schedule
+- `epochMs` (number) - Absolute time in milliseconds since the Unix epoch
+- `title` (string) - Notification title
+- `message` (string) - Notification body text
+
+**Returns:** Boolean success status
+
+**Permissions Required:** `NOTIFICATIONS`
+
+**Example:**
+```javascript
+Scheduler.scheduleAt("deploy", Date.now() + 3600000, "Deploy",
+    "Deployment window opens in one hour");
+```
+
+---
 
 ### Scheduler.scheduleDaily(id, hour, minute, title, message)
 
@@ -890,10 +1049,11 @@ if (scheduled) {
 
 ### Scheduler.cancel(id)
 
-Cancel a previously scheduled daily notification.
+Cancel a previously scheduled notification — daily or one-shot.
 
 **Parameters:**
-- `id` (string) - Identifier passed to `Scheduler.scheduleDaily`
+- `id` (string) - Identifier passed to `Scheduler.scheduleDaily`,
+  `Scheduler.scheduleIn`, or `Scheduler.scheduleAt`
 
 **Returns:** Boolean success status
 

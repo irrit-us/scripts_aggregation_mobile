@@ -66,3 +66,21 @@ deleteBtn.setOnTap(function() {
     }
 });
 UI.addView(deleteBtn);
+
+let listLabel = new Label("Files: (none)");
+listLabel.setTextSize(14);
+UI.addView(listLabel);
+
+let listBtn = new Button("List Files");
+listBtn.setBackgroundColor("#607D8B");
+listBtn.setTextColor("#FFFFFF");
+listBtn.setOnTap(function() {
+    let files = Storage.listFiles(".");
+    if (files && files.length > 0) {
+        listLabel.setText("Files: " + files.join(", "));
+        console.log("Files: " + files.join(", "));
+    } else {
+        listLabel.setText("Files: (none)");
+    }
+});
+UI.addView(listBtn);

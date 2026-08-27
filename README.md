@@ -1,4 +1,6 @@
-# ScriptHost - Mobile Script Aggregation Platform
+# SAM - Mobile Script Aggregation Platform
+
+SAM (**s**cripts **a**ggregation **m**obile, formerly ScriptHost) is the Android app in this repository.
 
 A powerful mobile script host environment that enables users to write and install scripts to control native UI and system functionality.
 
@@ -36,7 +38,8 @@ A powerful mobile script host environment that enables users to write and instal
 - **Native UI Components**: 13 configurable widgets (Button, Label, TextField, ListView, ImageView, Switch, Slider, ScrollView, CheckBox, Spinner, ProgressBar, Layout, Chart) with common styling, layout containers, dialog helpers, and sub-screen navigation via the `UI.pushPage`/`UI.popPage` page stack
 - **Secure Sandbox**: Isolated script execution with permission management
 - **Script Management**: Install, update, and manage scripts locally
-- **Configuration Interface**: Manage API keys and settings from the Settings screen
+- **Discord-Style Drawer UI**: Left drawer holds the script list; scripts run in the content area beside it under one slim in-app header (☰ + title, no system ActionBar)
+- **Configuration Interface**: Manage API keys and settings from the Settings screen, plus app-level options (debug mode, light/dark appearance)
 - **Custom API Calls**: HTTP GET/POST with custom headers for authenticated APIs
 - **Wrapped Agent Conversations**: Example agent-chat script for OpenAI-compatible endpoints
 - **Server Monitoring**: Example script that polls and displays server health status
@@ -147,8 +150,8 @@ UI.addView(list);
 
 ## Configuration
 
-API keys and other settings are managed from the **Settings** screen
-(gear button on the main screen). Entries are stored as key/value pairs in the
+API keys and other settings are managed from the **设置** (Settings) screen
+(opened from the button at the bottom of the drawer). Entries are stored as key/value pairs in the
 app's private storage and are readable by scripts that declare the `CONFIG`
 permission:
 
