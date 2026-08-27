@@ -27,12 +27,12 @@ input.setTextSize(fontSize());
 addRow.addView(input);
 input.setWeight(1);
 
-let addBtn = new Button("+");
-addBtn.setTextSize(22);
+// Compact "+" glyph in the theme's default text color (dark: white,
+// light: black) instead of a full button; ~1.5x the text height
+let addBtn = new Label("+");
+addBtn.setTextSize(fontSize() * 1.5);
 addBtn.setBold(true);
-addBtn.setBackgroundColor("#2196F3");
-addBtn.setTextColor("#FFFFFF");
-addBtn.setPadding(12, 0, 12, 0);
+addBtn.setPadding(16, 0, 16, 0);
 addBtn.setOnTap(function() {
     let task = input.getValue();
     if (task && task.trim() !== "") {
@@ -67,11 +67,9 @@ function addTodo(text) {
     row.addView(check);
     check.setWeight(1);
 
-    let deleteBtn = new Button("X");
-    deleteBtn.setTextSize(14);
-    deleteBtn.setTextColor("#FF3B30");
-    deleteBtn.setBackgroundColor("#00000000");
-    deleteBtn.setPadding(8, 0, 8, 0);
+    let deleteBtn = new Label("X");
+    deleteBtn.setTextSize(fontSize());
+    deleteBtn.setPadding(12, 0, 12, 0);
     deleteBtn.setOnTap(function() {
         listLayout.removeView(row);
         let at = todos.indexOf(item);

@@ -35,6 +35,7 @@ Every component exposes the following methods:
 - `setWidth(px: number)` - Width in dp; `-1` matches the parent, `-2` wraps content
 - `setHeight(px: number)` - Height in dp; `-1` matches the parent, `-2` wraps content
 - `setWeight(weight: number)` - LinearLayout weight: the view takes the remaining space along the parent Layout's orientation (e.g. an input field beside a compact button); call after adding the view to the Layout
+- `setOnTap(callback: function)` - Tap handler for any view (compact glyph "buttons" like a Label "+"); for Buttons this is the same as their `setOnTap`
 - `setAlpha(alpha: number)` - Opacity from `0.0` to `1.0`
 - `setBackgroundColor(color: string)` - Background color (hex: `"#RRGGBB"`)
 - `setCornerRadius(radiusDp: number)` - Rounded background corners in dp

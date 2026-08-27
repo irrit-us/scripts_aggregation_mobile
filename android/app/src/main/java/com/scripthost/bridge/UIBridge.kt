@@ -812,6 +812,22 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         }
     }
 
+    /**
+     * `view.setOnTap(fn)` — tap handler for ANY view, so compact glyph
+     * "buttons" (e.g. a Label "+") can be used instead of full buttons.
+     */
+    @Suppress("unused")
+    fun setViewOnTap(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
+        val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
+        onUiThread {
+            viewRegistry[viewId]?.setOnClickListener {
+                onEngineThread { retained.call(runtime, null) }
+            }
+        }
+    }
+
     @Suppress("unused")
     fun setLabelText(receiver: V8Object, text: String) {
         val viewId = receiver.getInteger("_viewId")
@@ -1506,6 +1522,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
             arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setViewWeight", "setWeight",
             arrayOf(V8Object::class.java, Double::class.java), true)
+        jsObject.registerJavaMethod(this, "setViewOnTap", "setOnTap",
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
         jsObject.registerJavaMethod(this, "setViewAlpha", "setAlpha",
             arrayOf(V8Object::class.java, Double::class.java), true)
         jsObject.registerJavaMethod(this, "setViewBackgroundColor", "setBackgroundColor",
