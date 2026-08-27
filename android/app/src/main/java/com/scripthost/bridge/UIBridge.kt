@@ -732,6 +732,12 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         onUiThread { (viewRegistry[viewId] as? TextView)?.isAllCaps = allCaps }
     }
 
+    @Suppress("unused")
+    fun setTextViewStrikeThrough(receiver: V8Object, enabled: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
+        onUiThread { (viewRegistry[viewId] as? TextView)?.let { applyStrikeThrough(it, enabled) } }
+    }
+
     // ------------------------------------------------------------------
     // Component-specific setters
     // ------------------------------------------------------------------
@@ -1457,6 +1463,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
             arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewAllCaps", "setAllCaps",
             arrayOf(V8Object::class.java, Boolean::class.java), true)
+        jsObject.registerJavaMethod(this, "setTextViewStrikeThrough", "setStrikeThrough",
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
     }
 
     /**
@@ -1614,4 +1622,18 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
     private fun dp(value: Float): Float = value * context.resources.displayMetrics.density
+
+    companion object {
+        /**
+         * Add or remove [android.graphics.Paint.STRIKE_THRU_TEXT_FLAG] while
+         * preserving all other paint flags. V8-free so it is JVM-testable.
+         */
+        internal fun applyStrikeThrough(textView: TextView, enabled: Boolean) {
+            textView.paintFlags = if (enabled) {
+                textView.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+            } else {
+                textView.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            }
+        }
+    }
 }

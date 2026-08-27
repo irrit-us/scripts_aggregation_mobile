@@ -121,14 +121,15 @@ class ScriptManager(
             if (content.trim().startsWith("{")) {
                 installScriptFromJson(content, verifySignature)
             } else {
-                // Raw JavaScript, treated as a local unsigned script with no
-                // permissions until the user grants them at run time
+                // Raw JavaScript, treated as a local unsigned script. Declare
+                // the permissions its API usage implies so the runtime grant
+                // flow has something to ask for; users can revoke in Settings.
                 installScript(
                     name = file.nameWithoutExtension,
                     version = "1.0.0",
                     author = "Unknown",
                     description = "Imported script",
-                    permissions = emptyList(),
+                    permissions = detectPermissions(content),
                     sourceCode = content,
                     verifySignature = false
                 )
@@ -265,6 +266,29 @@ class ScriptManager(
     private fun generateScriptId(name: String, author: String): String {
         val base = "${author.lowercase()}.${name.lowercase().replace(" ", "_")}"
         return base.replace(Regex("[^a-z0-9._]"), "")
+    }
+
+    /**
+     * Best-effort permission declaration for imported raw scripts: scan the
+     * source for bridge namespaces and map them to the permissions they need.
+     * Only used when the file carries no manifest of its own.
+     */
+    private fun detectPermissions(source: String): List<Permission> {
+        val detected = linkedSetOf<Permission>()
+        if (source.contains("Network.")) detected += Permission.INTERNET
+        if (source.contains("SSH.")) detected += Permission.SSH
+        if (source.contains("Storage.")) {
+            detected += Permission.READ_STORAGE
+            detected += Permission.WRITE_STORAGE
+        }
+        if (source.contains("Sensor.getAccelerometer")) detected += Permission.ACCELEROMETER
+        if (source.contains("Sensor.getGyroscope")) detected += Permission.GYROSCOPE
+        if (source.contains("Device.vibrate")) detected += Permission.VIBRATE
+        if (source.contains("Notify.") || source.contains("Scheduler.")) {
+            detected += Permission.NOTIFICATIONS
+        }
+        if (source.contains("Config.")) detected += Permission.CONFIG
+        return detected.toList()
     }
 
     private fun saveScript(script: Script) {

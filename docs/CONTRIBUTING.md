@@ -145,6 +145,9 @@ class MyClass {
 - Explain complex logic with inline comments
 - Update README.md for significant changes
 - Add examples for new features
+- When adding or changing examples in `scripts/examples/`, re-sync the
+  copies bundled in the app: `android/app/src/main/assets/builtin_examples/`
+  must contain the same files (the "Built-in Examples" import installs these)
 
 ### Testing
 

@@ -68,7 +68,7 @@ content area returns to the empty state.
 
 ## Try Examples
 
-SAM includes 17 example scripts covering every exposed API:
+SAM includes 18 example scripts covering every exposed API:
 
 1. **Hello World** - Basic button and alert
 2. **Counter** - State management demo
@@ -87,9 +87,12 @@ SAM includes 17 example scripts covering every exposed API:
 15. **Markdown Demo** - Markdown rendering
 16. **Scheduled Notifications** - One-shot and daily scheduled alerts
 17. **Device Info** - Read-only system/device information
+18. **Metronome** - Audio metronome demo
 
-To try an example, use "+" → "Import from File" and pick a file from
-`scripts/examples/`, then run it from the drawer list.
+To try an example, tap "+" below the drawer script list and choose
+"Built-in Examples" — pick one from the list and it installs instantly
+(no external file needed). Alternatively use "Import from File" to install
+any `.js` file from storage, then run it from the drawer list.
 
 ## Common Tasks
 

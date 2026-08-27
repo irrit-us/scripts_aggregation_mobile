@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- "Built-in Examples" import: the add-script dialog offers a picker over the
+  18 examples bundled in `assets/builtin_examples/` (synced copies of
+  `scripts/examples/`); selecting one installs it immediately. Installing
+  `agent_conversation.js` also toasts a hint to configure the API keys
+- Settings "Agent" section (between App and the generic config keys):
+  labeled "API Base URL" (prefilled with the stored value or
+  `https://api.openai.com/v1`) and masked "API Key" inputs with a Save
+  button, persisted to ConfigStore under `AGENT_API_URL` / `OPENAI_API_KEY`
+- `setStrikeThrough(enabled)` text method on all text-capable components
+  (Button, Label, Switch, CheckBox, TextField)
+- New example `metronome.js` (BPM slider, accented beats via vibration);
+  `agent_conversation.js` reworked into a chat-style UI with per-exchange
+  status (model, HTTP outcome, elapsed ms); `todo_list.js` and
+  `daily_fitness.js` now use gray + strikethrough for completed items
+- On-device API coverage script `tests/api_coverage.js` printing
+  `APITEST|PASS|name` / `APITEST|FAIL|name|reason` markers
 - Read-only `Device` system information for scripts: `Device.getTime()`
   (epoch ms), `Device.getTimeZone()`, `Device.getDeviceName()`,
   `Device.getMemoryInfo()` (`{ totalMB, availableMB, lowMemory }`),

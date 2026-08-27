@@ -461,7 +461,8 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     private fun showAddScriptDialog() {
         val options = arrayOf(
             getString(R.string.create_new_script),
-            getString(R.string.import_from_file)
+            getString(R.string.import_from_file),
+            getString(R.string.builtin_examples)
         )
 
         AlertDialog.Builder(this)
@@ -472,9 +473,79 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
                     1 -> importLauncher.launch(
                         arrayOf("text/javascript", "application/javascript", "*/*")
                     )
+                    2 -> showBuiltinExamplesDialog()
                 }
             }
             .show()
+    }
+
+    /** Picker for the examples bundled in assets (see builtin_examples/). */
+    private fun showBuiltinExamplesDialog() {
+        val files = try {
+            assets.list(BUILTIN_EXAMPLES_DIR)?.sorted() ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+        if (files.isEmpty()) {
+            Toast.makeText(this, R.string.import_read_failed, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val displayNames = files.map { builtinDisplayName(it) }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.builtin_examples_title))
+            .setItems(displayNames) { _, which -> installBuiltinExample(files[which]) }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
+    }
+
+    /** "todo_list.js" -> "Todo List" */
+    private fun builtinDisplayName(filename: String): String {
+        return filename.removeSuffix(".js").split('_')
+            .joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
+    }
+
+    /**
+     * Install a bundled example: copy the asset into filesDir/imports, then
+     * install it via [com.scripthost.engine.ScriptManager.installScriptFromFile]
+     * (same pattern as the URI import).
+     */
+    private fun installBuiltinExample(filename: String) {
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val dest = File(File(filesDir, "imports").apply { mkdirs() }, filename)
+                    assets.open("$BUILTIN_EXAMPLES_DIR/$filename").use { input ->
+                        dest.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    scriptManager.installScriptFromFile(dest, verifySignature = false)
+                } catch (e: Exception) {
+                    InstallResult.Failure(getString(R.string.import_failed, e.message ?: ""))
+                }
+            }
+
+            when (result) {
+                is InstallResult.Success -> {
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.script_installed_toast, result.script.name),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    if (filename == AGENT_EXAMPLE_FILE) {
+                        // The agent chat needs API config to be useful
+                        Toast.makeText(
+                            this@MainActivity,
+                            getString(R.string.agent_config_hint),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    loadScripts()
+                }
+                is InstallResult.Failure -> {
+                    Toast.makeText(this@MainActivity, result.error, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     /** Handle "open with" VIEW intents for .js files (see manifest). */
@@ -615,6 +686,12 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
         /** Header bar height (~1.8x the original slim bar). */
         private const val HEADER_HEIGHT_DP = 72
+
+        /** Asset directory holding the bundled example scripts. */
+        private const val BUILTIN_EXAMPLES_DIR = "builtin_examples"
+
+        /** Bundled agent-chat example; needs API keys configured in Settings. */
+        private const val AGENT_EXAMPLE_FILE = "agent_conversation.js"
     }
 }
 

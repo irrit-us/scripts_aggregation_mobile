@@ -131,25 +131,28 @@ Tap "Delete" to remove data
 
 ### 7. Agent Conversation (`agent_conversation.js`)
 
-**Description**: Wrapped agent chat against an OpenAI-compatible chat completions
-endpoint. Reads the API key from the configuration interface and sends custom
-authenticated API calls.
+**Description**: Chat with an OpenAI-compatible chat completions endpoint,
+shown as a scrollable message list (user messages tinted blue, agent
+messages gray, system/error messages red). After each exchange a status
+line shows the model, the HTTP outcome, and the elapsed time.
 
 **Concepts Demonstrated**:
-- Configuration interface (`Config.get`)
+- Configuration interface (`Config.get`): `OPENAI_API_KEY` (required) and
+  `AGENT_API_URL` (optional base URL, default `https://api.openai.com/v1`)
 - Custom API calls with `Authorization` headers (`Network.post` with headers)
-- JSON request/response handling
-- Async callbacks and error handling
-- Loading states and UI updates
+- Chat-style UI: ScrollView + colored message labels
+- Per-exchange interaction info (model, HTTP status/error, elapsed ms)
+- Conversation history sent with each request
+- Graceful error display as in-chat system messages
 
 **Permissions Required**: `CONFIG`, `INTERNET`
 
 **Usage**:
 ```bash
-1. Open Settings and add OPENAI_API_KEY (optionally OPENAI_API_BASE)
+1. Open Settings and add OPENAI_API_KEY (optionally AGENT_API_URL)
 2. Import agent_conversation.js into ScriptHost
 3. Enter a message and tap "Send"
-4. The agent's reply is rendered in the response label
+4. The agent's reply appears as a new message bubble with a status line
 ```
 
 ---
@@ -386,6 +389,30 @@ time/timezone, and live memory/storage usage with a refresh button.
 - `Config.keys()` to list configured key names
 
 **Permissions Required**: CONFIG (only for the `Config.keys()` row)
+
+---
+
+### 18. Metronome (`metronome.js`)
+
+**Description**: A BPM metronome. A slider sets the tempo (40-208 BPM) with
+a live BPM label; a start/stop button toggles the beat. Each beat flashes
+the beat indicator and vibrates; the first beat of every 4 is accented
+(different color, longer vibration).
+
+**Concepts Demonstrated**:
+- `setInterval`/`clearInterval` for periodic beats (always cleared before
+  re-creation, so timers never stack)
+- `Slider` with `setMin`/`setMax`/`setValue` and live updates
+- `Device.vibrate` with accent patterns
+- Visual feedback via background-color flashes
+
+**Permissions Required**: VIBRATE
+
+**Usage**:
+```bash
+Import metronome.js into ScriptHost and run it
+Drag the slider to set the tempo, tap "Start"
+```
 
 ---
 

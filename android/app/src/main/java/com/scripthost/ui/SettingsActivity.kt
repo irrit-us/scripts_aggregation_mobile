@@ -17,10 +17,12 @@ import com.scripthost.ScriptHostApplication
  *  1. App: debug-mode toggle (script console mirrored to Logcat) and
  *     light/dark appearance — app-only preferences persisted in
  *     [com.scripthost.config.AppSettings] (SharedPreferences).
- *  2. App-level config keys (API keys etc.) backed by [com.scripthost.config.ConfigStore],
+ *  2. Agent: API base URL + key for the bundled agent_conversation example,
+ *     persisted to ConfigStore under AGENT_API_URL / OPENAI_API_KEY.
+ *  3. App-level config keys (API keys etc.) backed by [com.scripthost.config.ConfigStore],
  *     values masked in the list. Scripts with the CONFIG permission read them
  *     through the `Config` bridge (e.g. `Config.get("OPENAI_API_KEY")`).
- *  3. Installed scripts: declared permissions plus granted permissions with
+ *  4. Installed scripts: declared permissions plus granted permissions with
  *     per-permission revoke.
  *
  * Chrome follows the sub-screen spec: a top-left X closes the screen, and a
@@ -38,6 +40,12 @@ class SettingsActivity : AppCompatActivity() {
     private val scriptManager get() = app.scriptManager
     private val permissionManager get() = app.permissionManager
     private val appSettings get() = app.appSettings
+
+    companion object {
+        /** ConfigStore keys read by the bundled agent_conversation example. */
+        private const val CONFIG_KEY_AGENT_API_URL = "AGENT_API_URL"
+        private const val CONFIG_KEY_OPENAI_API_KEY = "OPENAI_API_KEY"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +80,9 @@ class SettingsActivity : AppCompatActivity() {
 
         // ---- App-level preferences ----
         setupAppSection(rootLayout)
+
+        // ---- Agent API configuration ----
+        setupAgentSection(rootLayout)
 
         rootLayout.addView(TextView(this).apply {
             text = "Configure API keys and settings. Scripts with the CONFIG " +
@@ -190,6 +201,65 @@ class SettingsActivity : AppCompatActivity() {
         }
         appearanceRow.addView(modeSpinner)
         rootLayout.addView(appearanceRow)
+    }
+
+    /**
+     * "Agent" section: API configuration for the bundled agent_conversation
+     * example, persisted to ConfigStore under the exact keys the script reads
+     * (`AGENT_API_URL`, `OPENAI_API_KEY`).
+     */
+    private fun setupAgentSection(rootLayout: LinearLayout) {
+        rootLayout.addView(TextView(this).apply {
+            text = getString(R.string.agent_section)
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 8, 0, 8)
+        })
+
+        rootLayout.addView(TextView(this).apply {
+            text = getString(R.string.agent_api_base_url)
+            textSize = 15f
+        })
+        val urlInput = EditText(this).apply {
+            setText(configStore.get(CONFIG_KEY_AGENT_API_URL)
+                ?: getString(R.string.agent_default_base_url))
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine()
+        }
+        rootLayout.addView(urlInput)
+
+        rootLayout.addView(TextView(this).apply {
+            text = getString(R.string.agent_api_key)
+            textSize = 15f
+            setPadding(0, 8, 0, 0)
+        })
+        val keyInput = EditText(this).apply {
+            setText(configStore.get(CONFIG_KEY_OPENAI_API_KEY) ?: "")
+            // Masked input: the key is a secret
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine()
+        }
+        rootLayout.addView(keyInput)
+
+        rootLayout.addView(Button(this).apply {
+            text = getString(R.string.save)
+            setOnClickListener {
+                val url = urlInput.text.toString().trim()
+                if (url.isNotEmpty()) {
+                    configStore.put(CONFIG_KEY_AGENT_API_URL, url)
+                }
+                configStore.put(CONFIG_KEY_OPENAI_API_KEY, keyInput.text.toString().trim())
+                Toast.makeText(
+                    this@SettingsActivity,
+                    getString(R.string.agent_saved),
+                    Toast.LENGTH_SHORT
+                ).show()
+                // Refresh the generic key list so the new entries show up
+                loadConfig()
+            }
+        })
     }
 
     private fun loadConfig() {

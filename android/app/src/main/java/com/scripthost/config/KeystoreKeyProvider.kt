@@ -12,10 +12,16 @@ import javax.crypto.SecretKey
  * The key is generated once and stored in the AndroidKeyStore, where the key
  * material never leaves the hardware-backed keystore.
  */
-class KeystoreKeyProvider(private val keyAlias: String = "scripthost_config_key") {
+class KeystoreKeyProvider(private val keyAlias: String = "scripthost_config_key_v2") {
 
     /**
      * Return the key stored under [keyAlias], generating it on first use.
+     *
+     * The v2 alias replaces an earlier key that was generated without
+     * `setRandomizedEncryptionRequired(false)`, which made the keystore reject
+     * caller-provided IVs and silently broke config persistence. Values written
+     * under the old key fail decryption and are treated as legacy plaintext by
+     * ConfigStore, then re-encrypted under the new key on the next save.
      */
     fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
@@ -36,6 +42,9 @@ class KeystoreKeyProvider(private val keyAlias: String = "scripthost_config_key"
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
+            // AesGcmValueCipher supplies its own SecureRandom IV per value;
+            // the keystore default forbids caller-provided IVs.
+            .setRandomizedEncryptionRequired(false)
             .build()
         keyGenerator.init(spec)
         keyGenerator.generateKey()

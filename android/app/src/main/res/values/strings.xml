@@ -38,6 +38,9 @@
     <string name="add_script_dialog_title">Add Script</string>
     <string name="create_new_script">Create New Script</string>
     <string name="import_from_file">Import from File</string>
+    <string name="builtin_examples">Built-in Examples</string>
+    <string name="builtin_examples_title">Built-in Examples</string>
+    <string name="agent_config_hint">Tip: configure AGENT_API_URL and OPENAI_API_KEY in Settings to use this script</string>
     <string name="import_unsupported">Only .js scripts or .json script packages can be imported: %1$s</string>
     <string name="import_read_failed">Could not read the selected file</string>
     <string name="import_failed">Import failed: %1$s</string>
@@ -48,6 +51,11 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_app_section">App</string>
+    <string name="agent_section">Agent</string>
+    <string name="agent_api_base_url">API Base URL</string>
+    <string name="agent_api_key">API Key</string>
+    <string name="agent_default_base_url">https://api.openai.com/v1</string>
+    <string name="agent_saved">Agent settings saved</string>
     <string name="debug_mode_label">Debug mode (mirror script console to Logcat)</string>
     <string name="appearance_label">Appearance</string>
     <string name="theme_follow_system">Follow system</string>

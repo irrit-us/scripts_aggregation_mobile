@@ -1,6 +1,7 @@
 package com.scripthost.bridge
 
 import android.content.Context
+import android.graphics.Paint
 import android.os.Looper
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -91,5 +92,34 @@ class UIBridgeTest {
         assertThat(bridge.pageDepth()).isEqualTo(1)
         assertThat(host.childCount).isEqualTo(1)
         assertThat(host.getChildAt(0)).isSameInstanceAs(rootPage)
+    }
+
+    @Test
+    fun applyStrikeThrough_addsAndRemovesFlag() {
+        val checkBox = android.widget.CheckBox(ApplicationProvider.getApplicationContext())
+
+        UIBridge.applyStrikeThrough(checkBox, true)
+        assertThat(checkBox.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG)
+            .isEqualTo(Paint.STRIKE_THRU_TEXT_FLAG)
+
+        UIBridge.applyStrikeThrough(checkBox, false)
+        assertThat(checkBox.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG).isEqualTo(0)
+    }
+
+    @Test
+    fun applyStrikeThrough_preservesOtherFlags() {
+        val textView = android.widget.TextView(ApplicationProvider.getApplicationContext())
+        textView.paintFlags = Paint.UNDERLINE_TEXT_FLAG or Paint.ANTI_ALIAS_FLAG
+
+        UIBridge.applyStrikeThrough(textView, true)
+        assertThat(textView.paintFlags and Paint.UNDERLINE_TEXT_FLAG)
+            .isEqualTo(Paint.UNDERLINE_TEXT_FLAG)
+        assertThat(textView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG)
+            .isEqualTo(Paint.STRIKE_THRU_TEXT_FLAG)
+
+        UIBridge.applyStrikeThrough(textView, false)
+        assertThat(textView.paintFlags and Paint.UNDERLINE_TEXT_FLAG)
+            .isEqualTo(Paint.UNDERLINE_TEXT_FLAG)
+        assertThat(textView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG).isEqualTo(0)
     }
 }

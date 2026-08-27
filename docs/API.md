@@ -51,6 +51,7 @@ expose:
 - `setTextAlign(align: string)` - Alignment: `left`, `right`, `center`,
   `top`, `bottom`, `fill`, `start`, `end`
 - `setAllCaps(allCaps: boolean)` - Force uppercase text
+- `setStrikeThrough(enabled: boolean)` - Toggle strikethrough text
 
 ### Button
 
@@ -686,6 +687,10 @@ for (let i = 0; i < keys.length; i++) {
   placeholder, plus an optional bearer token (`stock_trends.js`)
 - `TMUX_HOST` / `TMUX_PORT` / `TMUX_USER` / `TMUX_PASSWORD` - SSH connection
   settings for the remote tmux console (`tmux_remote.js`)
+- `AGENT_API_URL` / `OPENAI_API_KEY` - OpenAI-compatible chat endpoint base
+  URL (optional; default `https://api.openai.com/v1`) and required API key
+  (`agent_conversation.js`); both can be set from the dedicated Agent section
+  in Settings
 
 ---
 
