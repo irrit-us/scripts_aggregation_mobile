@@ -5,10 +5,6 @@
 let count = 0;
 
 // Title
-let title = new Label("Counter App");
-title.setTextSize(24);
-UI.addView(title);
-
 // Counter display
 let counterLabel = new Label("Count: 0");
 counterLabel.setTextSize(32);

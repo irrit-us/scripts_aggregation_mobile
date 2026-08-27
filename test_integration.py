@@ -457,7 +457,7 @@ class IntegrationTester:
 
         examples = [
             ("monitor_port_chart.js", ['new Chart']),
-            ("daily_fitness.js", ['Scheduler.scheduleDaily', 'Notify.post']),
+            ("daily_fitness.js", ['Config.schema', 'FITNESS_PLAN_MD', 'fitness_state_']),
             ("stock_trends.js", ['Network.get', 'new Chart']),
             ("tmux_remote.js", ['SSH.connect', 'SSH.exec']),
             ("sub_screens.js", ['UI.pushPage', 'UI.popPage']),

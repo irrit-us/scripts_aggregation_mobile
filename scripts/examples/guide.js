@@ -3,10 +3,6 @@
 // from "+" -> "Built-in Examples". Renders this guide with the Markdown view.
 // Permissions: CONFIG (none strictly required)
 
-let title = new Label("Guide");
-title.setTextSize(24);
-UI.addView(title);
-
 let md = new Markdown(
     "# Welcome to SAM\n" +
     "*script aggregation mobile* - run JavaScript mini-apps on your phone.\n" +
@@ -47,11 +43,3 @@ let md = new Markdown(
     "Happy scripting!"
 );
 UI.addView(md);
-
-let btn = new Button("Got it");
-btn.setBackgroundColor("#007AFF");
-btn.setTextColor("#FFFFFF");
-btn.setOnTap(function() {
-    showToast("Open the drawer and pick an example!");
-});
-UI.addView(btn);

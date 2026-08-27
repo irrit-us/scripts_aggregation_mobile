@@ -365,6 +365,20 @@ class SettingsActivity : AppCompatActivity() {
                             options.getOrElse(spinner.selectedItemPosition) { options.first() }
                         }
                     }
+                    "multiline" -> {
+                        val input = EditText(this).apply {
+                            setText(stored ?: field.default.orEmpty())
+                            minLines = 4
+                            gravity = android.view.Gravity.TOP
+                            isVerticalScrollBarEnabled = true
+                            inputType = InputType.TYPE_CLASS_TEXT or
+                                InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                        }
+                        scriptConfigContainer.addView(input)
+                        // Multiline values keep their line breaks; only the
+                        // outer whitespace is trimmed
+                        readers += field.key to { input.text.toString().trim() }
+                    }
                     else -> {
                         val input = EditText(this).apply {
                             setText(stored ?: field.default.orEmpty())

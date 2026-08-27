@@ -130,7 +130,8 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     private lateinit var scriptAdapter: ScriptAdapter
 
     /** Id of the script currently running in the content area, if any. */
-    private var runningScriptId: String? = null
+    var runningScriptId: String? = null
+        private set
 
     /** SAF file picker for ".js" import (specific MIME types with wildcard fallback). */
     private val importLauncher = registerForActivityResult(
@@ -447,6 +448,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     private fun runScript(script: Script) {
         drawerLayout.closeDrawer(drawerPanel)
         runningScriptId = script.id
+        loadScripts() // refresh the drawer to highlight the running script
         emptyStateView.visibility = View.GONE
         runtimeContainer.visibility = View.VISIBLE
         supportFragmentManager.beginTransaction()
@@ -465,6 +467,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     override fun onScriptSessionEnded() {
         runningScriptId = null
+        loadScripts() // clear the running-script highlight
         supportFragmentManager.findFragmentByTag(FRAGMENT_TAG)?.let { fragment ->
             supportFragmentManager.beginTransaction().remove(fragment).commit()
         }
@@ -793,16 +796,21 @@ class ScriptAdapter(
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         val script = scripts[position]
+        val isRunning = script.id == context.runningScriptId
 
         val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 16, 16, 16)
+            // Translucent accent tint marks the currently running script;
+            // readable in both light and dark themes
+            if (isRunning) setBackgroundColor(RUNNING_BACKGROUND)
         }
 
         val nameText = TextView(context).apply {
             text = script.name
             textSize = 18f
             setTypeface(null, Typeface.BOLD)
+            if (isRunning) setTextColor(RUNNING_ACCENT)
         }
         layout.addView(nameText)
 
@@ -820,5 +828,10 @@ class ScriptAdapter(
         layout.addView(infoText)
 
         return layout
+    }
+
+    companion object {
+        private const val RUNNING_BACKGROUND = 0x22007AFF
+        private const val RUNNING_ACCENT = 0xFF007AFF.toInt()
     }
 }

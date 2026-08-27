@@ -7,10 +7,6 @@
 let todos = [];
 
 // Title
-let title = new Label("Todo List");
-title.setTextSize(24);
-UI.addView(title);
-
 // Input field
 let input = new TextField("Enter a task...");
 UI.addView(input);

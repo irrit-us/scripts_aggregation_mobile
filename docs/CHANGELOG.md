@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New `Config.schema` field type `multiline` (multi-line text input in
+  Settings); `daily_fitness.js` was reworked into a configurable markdown
+  checklist using it (`FITNESS_PLAN_MD`) with per-day done-state persisted
+  to Storage, and tmux_remote / monitor_port_chart / stock_trends now
+  declare their schemas too
+- The currently running script is highlighted in the drawer list
+  (translucent accent row tint + accent name)
+
+### Changed
+- Examples no longer render in-page title labels (the running script's
+  name is already shown in the top bar); `device_info.js` Refresh now
+  actually updates the time/memory/storage rows
+
+### Added
 - Script-provided configuration: `Config.schema(jsonString)` lets a script
   declare its own config fields (text/password/number/boolean/select with
   optional defaults); schemas persist to `script_config_schemas.json`, are

@@ -15,10 +15,6 @@ let beatCount = 0;
 let timerId = 0;
 let running = false;
 
-let title = new Label("Metronome");
-title.setTextSize(24);
-UI.addView(title);
-
 let bpmLabel = new Label("BPM: " + bpm);
 bpmLabel.setTextSize(18);
 UI.addView(bpmLabel);

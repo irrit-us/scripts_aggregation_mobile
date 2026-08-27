@@ -1,18 +1,22 @@
 // Example 13: Remote tmux Console
 // Connects to a host over SSH and runs tmux commands, showing the output
-// in a scrollable console. Configure TMUX_HOST, TMUX_PORT, TMUX_USER and
-// TMUX_PASSWORD in Settings before connecting.
+// in a scrollable console. The script declares its configurable fields via
+// Config.schema(); after it has run once, they appear in Settings under
+// the script's section.
 // Permissions: SSH, CONFIG
+
+Config.schema(JSON.stringify([
+    { key: "TMUX_HOST", label: "Host", type: "text" },
+    { key: "TMUX_PORT", label: "Port", type: "number" },
+    { key: "TMUX_USER", label: "Username", type: "text" },
+    { key: "TMUX_PASSWORD", label: "Password", type: "password" }
+]));
 
 let host = Config.get("TMUX_HOST");
 let port = Config.get("TMUX_PORT");
 let user = Config.get("TMUX_USER");
 let password = Config.get("TMUX_PASSWORD");
 let connected = false;
-
-let title = new Label("Remote tmux Console");
-title.setTextSize(24);
-UI.addView(title);
 
 let hint = new Label("Configure TMUX_HOST, TMUX_PORT, TMUX_USER and TMUX_PASSWORD in Settings.");
 hint.setTextSize(12);

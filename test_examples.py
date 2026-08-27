@@ -37,7 +37,7 @@ class JavaScriptTester:
         print(f"Testing: {file_path.name}")
         print("-" * 70)
 
-        content = file_path.read_text()
+        content = file_path.read_text(encoding="utf-8")
         tests = []
 
         # Test 1: Syntax check (basic)

@@ -2,10 +2,6 @@
 // Demonstrates file storage capabilities
 // Permissions: READ_STORAGE, WRITE_STORAGE
 
-let title = new Label("Storage Demo");
-title.setTextSize(24);
-UI.addView(title);
-
 let keyInput = new TextField("Enter key");
 UI.addView(keyInput);
 

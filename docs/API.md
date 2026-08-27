@@ -690,7 +690,8 @@ field objects:
 - `key` (string, required) - Config key read back via `Config.get`
 - `label` (string, optional) - Display label; defaults to `key`
 - `type` (string, required) - `"text"`, `"password"`, `"number"`,
-  `"boolean"`, or `"select"` (select requires a non-empty `options` array)
+  `"boolean"`, `"multiline"` (multi-line text input), or `"select"`
+  (select requires a non-empty `options` array)
 - `options` (array of strings, select only)
 - `default` (string/number/boolean, optional)
 

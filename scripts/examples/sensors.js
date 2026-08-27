@@ -2,10 +2,6 @@
 // Demonstrates accelerometer and gyroscope access
 // Permissions: ACCELEROMETER, GYROSCOPE
 
-let title = new Label("Sensors Demo");
-title.setTextSize(24);
-UI.addView(title);
-
 let xLabel = new Label("X: 0.00");
 xLabel.setTextSize(18);
 UI.addView(xLabel);

@@ -122,7 +122,7 @@ class ScriptConfigSchemas(
         private const val TAG = "ScriptConfigSchemas"
         private const val FILE_NAME = "script_config_schemas.json"
 
-        val VALID_TYPES = setOf("text", "password", "number", "boolean", "select")
+        val VALID_TYPES = setOf("text", "password", "number", "boolean", "select", "multiline")
 
         /**
          * Parse and validate the JSON string a script passed to

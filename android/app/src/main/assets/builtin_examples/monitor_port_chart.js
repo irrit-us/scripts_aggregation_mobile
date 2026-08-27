@@ -2,12 +2,15 @@
 // Polls a monitor endpoint every 5 seconds and renders a rolling line chart
 // of the last 20 numeric values. Green line while below the threshold,
 // red otherwise; red immediately when the check fails (DOWN).
-// Configure MONITOR_URL (and optionally MONITOR_API_KEY / MONITOR_THRESHOLD) in Settings.
+// The script declares its configurable fields via Config.schema(); after
+// it has run once, they appear in Settings under the script's section.
 // Permissions: INTERNET, CONFIG
 
-let title = new Label("Monitor Port Chart");
-title.setTextSize(24);
-UI.addView(title);
+Config.schema(JSON.stringify([
+    { key: "MONITOR_URL", label: "Monitor URL", type: "text" },
+    { key: "MONITOR_API_KEY", label: "API Key", type: "password" },
+    { key: "MONITOR_THRESHOLD", label: "Threshold", type: "number" }
+]));
 
 let hint = new Label("Configure MONITOR_URL and optional MONITOR_API_KEY / MONITOR_THRESHOLD in Settings.");
 hint.setTextSize(12);

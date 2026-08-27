@@ -24,14 +24,6 @@ formLayout.addView(buttonRow);
 // ---------------------------------------------------------------
 // Text configuration
 // ---------------------------------------------------------------
-let title = new Label("UI Controls Demo");
-title.setTextSize(22);
-title.setBold(true);
-title.setTextColor("#263238");
-title.setTextAlign("center");
-title.setMargin(0, 4, 0, 12);
-formLayout.addView(title);
-
 let hintLabel = new Label("Typed text is echoed below.");
 hintLabel.setTextSize(14);
 hintLabel.setItalic(true);

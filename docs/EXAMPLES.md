@@ -2,6 +2,9 @@
 
 This directory contains example scripts demonstrating ScriptHost capabilities.
 
+Note: running scripts already show their name in the app's top bar, so the
+examples deliberately do not render their own in-page title labels.
+
 ## Available Examples
 
 ### 1. Hello World (`hello_world.js`)
@@ -241,28 +244,32 @@ immediately red when a check fails).
 
 ---
 
-### 11. Daily Fitness Reminder (`daily_fitness.js`)
+### 11. Daily Fitness Checklist (`daily_fitness.js`)
 
-**Description**: Shows a fitness tip for today and schedules a daily 8:00
-notification with that tip. A preview button posts the notification
-immediately.
+**Description**: A configurable daily checklist rendered from a markdown
+plan. The plan is configured in Settings (`FITNESS_PLAN_MD`, a multiline
+field declared via `Config.schema`); a small built-in sample plan is used
+until then. Checking an item grays it out and strikes it through, and the
+done-state is persisted per day (a new day starts unchecked).
 
 **Concepts Demonstrated**:
-- `Scheduler.scheduleDaily` / `Scheduler.cancel` for WorkManager-backed
-  daily notifications
-- `Notify.post` for immediate notifications
-- `NOTIFICATIONS` permission (runtime dialog on Android 13+)
-- Error handling with try-catch around bridge calls
+- Script-provided config fields (`Config.schema`) with the `multiline` type
+- Markdown checklist parsing: `#` lines become section labels, `- [ ]`
+  lines become CheckBoxes, other lines become gray notes
+- `setStrikeThrough` + text color for completed items
+- Per-day state persistence via `Storage` (`fitness_state_<yyyy-mm-dd>.json`)
+- `Scheduler.scheduleDaily` / `Scheduler.cancel` and `Notify.post`, with
+  the notification body reporting "N of M checklist items done today"
 
-**Permissions Required**: `NOTIFICATIONS`
+**Permissions Required**: `NOTIFICATIONS`, `READ_STORAGE`, `WRITE_STORAGE`,
+`CONFIG`
 
 **Usage**:
 ```bash
-1. Import daily_fitness.js into ScriptHost
-2. Grant the notification permission when prompted
-3. Tap "Enable daily 8:00 reminder" to schedule
-4. Tap "Preview notification" to post the tip immediately
-5. Tap "Disable reminder" to cancel the schedule
+1. Import daily_fitness.js into ScriptHost and run it once
+2. Open Settings and paste your plan into the script's FITNESS_PLAN_MD field
+3. Check items off during the day; state resets on the next day
+4. Optionally enable the daily 8:00 reminder
 ```
 
 ---

@@ -117,6 +117,18 @@ class ScriptConfigSchemasTest {
     }
 
     @Test
+    fun parseFields_acceptsMultilineType() {
+        val fields = parse(
+            """[ { "key": "PLAN_MD", "label": "Plan", "type": "multiline",
+                  "default": "# Warm-up" } ]"""
+        )!!
+
+        assertThat(fields).hasSize(1)
+        assertThat(fields[0].type).isEqualTo("multiline")
+        assertThat(fields[0].default).isEqualTo("# Warm-up")
+    }
+
+    @Test
     fun removeScript_dropsEntry() {
         val fields = parse(validSchemaJson())!!
         schemas.put("script-a", "Agent Chat", fields)

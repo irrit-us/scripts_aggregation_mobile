@@ -26,10 +26,6 @@ let COLOR_AGENT = "#F1F1F1";
 let COLOR_SYSTEM = "#FFE0E0";
 let history = [];
 
-let title = new Label("Agent Chat");
-title.setTextSize(24);
-UI.addView(title);
-
 // Static setup hint: only shown when no key is configured yet
 if (!Config.get("OPENAI_API_KEY")) {
     let hint = new Label("Set OPENAI_API_KEY (and optionally AGENT_API_URL) in Settings.");

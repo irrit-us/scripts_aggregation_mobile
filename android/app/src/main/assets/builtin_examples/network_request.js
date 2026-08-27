@@ -2,10 +2,6 @@
 // Fetches data from an API and displays it
 // Permissions: INTERNET
 
-let title = new Label("GitHub User Info");
-title.setTextSize(24);
-UI.addView(title);
-
 let usernameInput = new TextField("Enter GitHub username");
 UI.addView(usernameInput);
 

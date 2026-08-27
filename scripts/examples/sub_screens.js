@@ -9,10 +9,6 @@ let items = [
     { name: "Notes", text: "Notes keep your quick ideas and to-dos in one place." }
 ];
 
-let title = new Label("Sub-Screens Demo");
-title.setTextSize(24);
-UI.addView(title);
-
 let depthLabel = new Label("Page depth: " + UI.pageDepth());
 depthLabel.setTextSize(12);
 depthLabel.setTextColor("#888888");

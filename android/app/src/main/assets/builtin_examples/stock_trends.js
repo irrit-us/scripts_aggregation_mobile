@@ -1,13 +1,14 @@
 // Example 12: Stock Trends
 // Loads daily closing prices for a stock symbol and renders them as a
 // line chart. Green when the window ends up, red when it ends down.
-// Configure STOCK_API_URL with a "{symbol}" placeholder in Settings
-// (optionally STOCK_API_KEY sent as a Bearer token).
+// The script declares its configurable fields via Config.schema(); after
+// it has run once, they appear in Settings under the script's section.
 // Permissions: INTERNET, CONFIG
 
-let title = new Label("Stock Trends");
-title.setTextSize(24);
-UI.addView(title);
+Config.schema(JSON.stringify([
+    { key: "STOCK_API_URL", label: "API URL (with {symbol})", type: "text" },
+    { key: "STOCK_API_KEY", label: "API Key", type: "password" }
+]));
 
 let hint = new Label("Configure STOCK_API_URL with a {symbol} placeholder in Settings.");
 hint.setTextSize(12);

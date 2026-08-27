@@ -14,10 +14,6 @@ Config.schema(JSON.stringify([
       default: "5" }
 ]));
 
-let title = new Label("Server Monitor");
-title.setTextSize(24);
-UI.addView(title);
-
 let hint = new Label("Configure MONITOR_URL and optional MONITOR_API_KEY in Settings.");
 hint.setTextSize(12);
 hint.setTextColor("#888888");
