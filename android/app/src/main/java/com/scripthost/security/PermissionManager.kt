@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class PermissionManager(private val context: Context) {
 
     private val grantedPermissions = ConcurrentHashMap<String, MutableSet<Permission>>()
-    private val permissionCallbacks = ConcurrentHashMap<Int, (Boolean) -> Unit>()
+    private val permissionCallbacks = ConcurrentHashMap<Int, (IntArray) -> Unit>()
     private val requestCodeCounter = AtomicInteger(1000)
 
     companion object {
@@ -129,13 +129,17 @@ class PermissionManager(private val context: Context) {
         val requestCode = requestCodeCounter.incrementAndGet()
         val androidPermissions = needsRequest.mapNotNull { androidPermissionFor(it) }.toTypedArray()
 
-        permissionCallbacks[requestCode] = { allGranted ->
-            if (allGranted) {
-                granted.addAll(needsRequest)
-                grantedPermissions[script.id] = granted
-            } else {
-                denied.addAll(needsRequest)
+        permissionCallbacks[requestCode] = { grantResults ->
+            // needsRequest maps 1:1 onto the requested Android permissions;
+            // record each grant/denial individually instead of all-or-nothing.
+            needsRequest.zip(grantResults.toList()).forEach { (permission, result) ->
+                if (result == PackageManager.PERMISSION_GRANTED) {
+                    granted.add(permission)
+                } else {
+                    denied.add(permission)
+                }
             }
+            grantedPermissions[script.id] = granted
             callback(granted, denied)
         }
 
@@ -151,8 +155,7 @@ class PermissionManager(private val context: Context) {
         grantResults: IntArray
     ) {
         val callback = permissionCallbacks.remove(requestCode) ?: return
-        val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-        callback(allGranted)
+        callback(grantResults)
     }
 
     /**

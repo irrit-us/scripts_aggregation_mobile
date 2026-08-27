@@ -171,8 +171,10 @@ class ScriptEditorActivity : AppCompatActivity() {
 
         val category = ScriptCategory.values()[categorySpinner.selectedItemPosition]
 
-        // Default permissions (can be extended with permission selector UI)
-        val permissions = listOf(Permission.INTERNET)
+        // Preserve the existing script's permissions when editing; new scripts
+        // default to INTERNET (can be extended with permission selector UI)
+        val permissions = scriptId?.let { scriptManager.getScript(it)?.permissions }
+            ?: listOf(Permission.INTERNET)
 
         lifecycleScope.launch {
             val result = scriptManager.installScript(

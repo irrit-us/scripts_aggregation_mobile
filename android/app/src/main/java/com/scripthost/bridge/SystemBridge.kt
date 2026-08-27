@@ -247,15 +247,18 @@ class SystemBridge(
     // Storage API
 
     /**
-     * Resolve [name] against the app's private files directory, rejecting any
-     * path that escapes it (e.g. `../foo` or absolute paths). Returns null for
-     * out-of-bounds paths so callers fail closed like a permission denial.
+     * Resolve [name] against the script-dedicated storage subdirectory of the
+     * app's private files directory, rejecting any path that escapes it (e.g.
+     * `../foo` or absolute paths). Returns null for out-of-bounds paths so
+     * callers fail closed like a permission denial.
      */
     private fun confinedFile(name: String): File? {
         return try {
-            val base = context.filesDir.canonicalFile
-            val file = File(base, name).canonicalFile
-            if (file == base || file.path.startsWith(base.path + File.separator)) file else null
+            val base = File(context.filesDir, "script_storage")
+            base.mkdirs()
+            val canonicalBase = base.canonicalFile
+            val file = File(canonicalBase, name).canonicalFile
+            if (file == canonicalBase || file.path.startsWith(canonicalBase.path + File.separator)) file else null
         } catch (e: Exception) {
             null
         }
@@ -339,7 +342,7 @@ class SystemBridge(
 
     // Sensor API
 
-    private var sensorListener: SensorEventListener? = null
+    private val sensorListeners = mutableMapOf<Int, SensorEventListener>()
 
     /**
      * Get accelerometer data
@@ -366,7 +369,10 @@ class SystemBridge(
     private fun startSensor(sensorType: Int, callback: V8Function) {
         val sensor = sensorManager.getDefaultSensor(sensorType) ?: return
 
-        sensorListener = object : SensorEventListener {
+        // Replace any existing listener for this sensor type so it is not leaked
+        sensorListeners.remove(sensorType)?.let { sensorManager.unregisterListener(it) }
+
+        val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 // Copy the values first: SensorEvent buffers are reused by the system.
                 val x = event.values[0].toDouble()
@@ -395,22 +401,21 @@ class SystemBridge(
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
 
+        sensorListeners[sensorType] = listener
         sensorManager.registerListener(
-            sensorListener,
+            listener,
             sensor,
             SensorManager.SENSOR_DELAY_NORMAL
         )
     }
 
     /**
-     * Stop sensor listening
+     * Stop all sensor listening
      */
     @Suppress("unused")
     fun stopSensor() {
-        sensorListener?.let {
-            sensorManager.unregisterListener(it)
-            sensorListener = null
-        }
+        sensorListeners.values.forEach { sensorManager.unregisterListener(it) }
+        sensorListeners.clear()
     }
 
     // Device API

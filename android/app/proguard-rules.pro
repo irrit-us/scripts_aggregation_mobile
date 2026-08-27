@@ -9,6 +9,10 @@
 -keep class com.scripthost.bridge.** { *; }
 -keep class com.scripthost.engine.ScriptBridge { *; }
 
+# Keep engine classes whose methods J2V8 resolves by reflection
+# (console.log, setTimeout, etc. are registered by name)
+-keep class com.scripthost.engine.JavaScriptEngine { *; }
+
 # Keep methods called from JavaScript
 -keepclassmembers class com.scripthost.bridge.** {
     public *;

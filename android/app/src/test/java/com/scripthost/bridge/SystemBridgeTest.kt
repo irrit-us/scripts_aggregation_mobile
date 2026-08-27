@@ -19,7 +19,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Unit tests for [SystemBridge] covering permission-gated file storage and
- * confinement of storage paths to the app's private files directory.
+ * confinement of storage paths to the `script_storage` subdirectory of the
+ * app's private files directory.
  *
  * NOTE: under Robolectric `context.filesDir` points to a real temp dir, so
  * tests use unique file names and clean up what they create.
@@ -48,16 +49,16 @@ class SystemBridgeTest {
         assertThat(bridge.writeFile(name, "hello storage")).isTrue()
         assertThat(bridge.readFile(name)).isEqualTo("hello storage")
 
-        File(application.filesDir, name).delete()
+        storageFile(name).delete()
     }
 
     @Test
-    fun writeFile_createsFileInAppFilesDir() {
+    fun writeFile_createsFileInScriptStorageDir() {
         val name = uniqueName("created")
 
         assertThat(bridge.writeFile(name, "data")).isTrue()
 
-        val onDisk = File(application.filesDir, name)
+        val onDisk = storageFile(name)
         assertThat(onDisk.exists()).isTrue()
         assertThat(onDisk.readText()).isEqualTo("data")
         onDisk.delete()
@@ -72,10 +73,10 @@ class SystemBridgeTest {
     fun deleteFile_removesFile() {
         val name = uniqueName("delete")
         assertThat(bridge.writeFile(name, "bye")).isTrue()
-        assertThat(File(application.filesDir, name).exists()).isTrue()
+        assertThat(storageFile(name).exists()).isTrue()
 
         assertThat(bridge.deleteFile(name)).isTrue()
-        assertThat(File(application.filesDir, name).exists()).isFalse()
+        assertThat(storageFile(name).exists()).isFalse()
     }
 
     @Test
@@ -84,14 +85,15 @@ class SystemBridgeTest {
         val name = uniqueName("denied")
 
         assertThat(unprivileged.writeFile(name, "nope")).isFalse()
-        assertThat(File(application.filesDir, name).exists()).isFalse()
+        assertThat(storageFile(name).exists()).isFalse()
         assertThat(unprivileged.readFile(name)).isNull()
         assertThat(unprivileged.deleteFile(name)).isFalse()
     }
 
     @Test
     fun writeFile_parentTraversal_isRejected() {
-        val escaped = File(application.filesDir.parentFile, "outside-traversal.txt")
+        // `..` from script_storage lands in filesDir, still out of bounds
+        val escaped = File(application.filesDir, "outside-traversal.txt")
         escaped.delete() // guard against leftovers from earlier runs
 
         assertThat(bridge.writeFile("../outside-traversal.txt", "escape")).isFalse()
@@ -145,6 +147,8 @@ class SystemBridgeTest {
     }
 
     private fun uniqueName(prefix: String) = "$prefix-${System.nanoTime()}.txt"
+
+    private fun storageFile(name: String) = File(File(application.filesDir, "script_storage"), name)
 
     private companion object {
         const val SCRIPT_ID = "storage-test"

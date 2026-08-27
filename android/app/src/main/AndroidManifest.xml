@@ -23,6 +23,10 @@
     <!-- Microphone permission (optional, requested at runtime) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Contacts permissions (optional, requested at runtime) -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+
     <!-- Haptics (used by Device.vibrate()) -->
     <uses-permission android:name="android.permission.VIBRATE" />
 

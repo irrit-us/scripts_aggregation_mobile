@@ -124,13 +124,14 @@ class ScriptManager(
             if (content.trim().startsWith("{")) {
                 installScriptFromJson(content, verifySignature)
             } else {
-                // Raw JavaScript, treated as a local unsigned script
+                // Raw JavaScript, treated as a local unsigned script with no
+                // permissions until the user grants them at run time
                 installScript(
                     name = file.nameWithoutExtension,
                     version = "1.0.0",
                     author = "Unknown",
                     description = "Imported script",
-                    permissions = listOf(Permission.INTERNET),
+                    permissions = emptyList(),
                     sourceCode = content,
                     verifySignature = false
                 )
