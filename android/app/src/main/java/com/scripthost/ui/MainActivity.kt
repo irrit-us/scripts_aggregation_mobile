@@ -212,9 +212,10 @@ class MainActivity : AppCompatActivity() {
     private fun showScriptDetails(script: Script) {
         val options = arrayOf("Run", "Edit", "Export", "Delete")
 
+        // NOTE: AlertDialog cannot show a message and an items list together —
+        // the message hides the items, so details go into the title instead.
         AlertDialog.Builder(this)
-            .setTitle(script.name)
-            .setMessage("${script.description}\n\nVersion: ${script.version}\nAuthor: ${script.author}")
+            .setTitle("${script.name}  v${script.version}")
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> runScript(script)

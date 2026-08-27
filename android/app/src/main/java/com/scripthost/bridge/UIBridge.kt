@@ -53,6 +53,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     private val viewRegistry = ConcurrentHashMap<Int, View>()
     private val viewStyles = ConcurrentHashMap<Int, ViewStyle>()
     private val textStates = ConcurrentHashMap<Int, TextState>()
+
+    /**
+     * Retained callback twins. J2V8 auto-releases V8Value parameters when a
+     * registered method returns, so callbacks that fire later are kept as
+     * twins and released on [unregister] (or right after a one-shot fire).
+     */
+    private val retainedCallbacks = ConcurrentHashMap.newKeySet<V8Value>()
     private var nextViewId = 1000
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -120,6 +127,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     override fun unregister() {
+        retainedCallbacks.forEach { if (!it.isReleased) it.release() }
+        retainedCallbacks.clear()
         viewRegistry.clear()
         viewStyles.clear()
         textStates.clear()
@@ -150,9 +159,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         jsObject.add("text", text)
         registerTextMethods(jsObject)
         jsObject.registerJavaMethod(this, "setButtonText", "setText",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setButtonOnTap", "setOnTap",
-            arrayOf(Int::class.java, V8Function::class.java))
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
 
         return jsObject
     }
@@ -177,7 +186,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         jsObject.add("text", text)
         registerTextMethods(jsObject)
         jsObject.registerJavaMethod(this, "setLabelText", "setText",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
 
         return jsObject
     }
@@ -206,19 +215,19 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         jsObject.add("hint", hint)
         registerTextMethods(jsObject)
         jsObject.registerJavaMethod(this, "getTextFieldValue", "getValue",
-            arrayOf(Int::class.java))
+            arrayOf(V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setTextFieldValue", "setValue",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextFieldOnChange", "setOnChange",
-            arrayOf(Int::class.java, V8Function::class.java))
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
         jsObject.registerJavaMethod(this, "setTextFieldHint", "setHint",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextFieldHintColor", "setHintTextColor",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextFieldInputType", "setInputType",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextFieldMaxLength", "setMaxLength",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
 
         return jsObject
     }
@@ -242,11 +251,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(listView)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "setListViewItems", "setItems",
-            arrayOf(Int::class.java, V8Array::class.java))
+            arrayOf(V8Object::class.java, V8Array::class.java), true)
         jsObject.registerJavaMethod(this, "setListViewOnItemTap", "setOnItemTap",
-            arrayOf(Int::class.java, V8Function::class.java))
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
         jsObject.registerJavaMethod(this, "setListViewSelection", "setSelection",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
 
         return jsObject
     }
@@ -267,9 +276,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(imageView)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "setImageBase64", "setImageBase64",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setImageScaleType", "setScaleType",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
 
         return jsObject
     }
@@ -293,13 +302,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         jsObject.add("text", text)
         registerTextMethods(jsObject)
         jsObject.registerJavaMethod(this, "setSwitchText", "setText",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setSwitchChecked", "setChecked",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
         jsObject.registerJavaMethod(this, "getSwitchChecked", "getChecked",
-            arrayOf(Int::class.java))
+            arrayOf(V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setSwitchOnChange", "setOnChange",
-            arrayOf(Int::class.java, V8Function::class.java))
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
 
         return jsObject
     }
@@ -326,15 +335,15 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(slider)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "setSliderValue", "setValue",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "getSliderValue", "getValue",
-            arrayOf(Int::class.java))
+            arrayOf(V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setSliderMax", "setMax",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setSliderMin", "setMin",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setSliderOnChange", "setOnChange",
-            arrayOf(Int::class.java, V8Function::class.java))
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
 
         return jsObject
     }
@@ -360,11 +369,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(scrollView)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "addChildToScrollView", "addView",
-            arrayOf(Int::class.java, V8Object::class.java))
+            arrayOf(V8Object::class.java, V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "removeChildFromScrollView", "removeView",
-            arrayOf(Int::class.java, V8Object::class.java))
+            arrayOf(V8Object::class.java, V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setScrollViewFillViewport", "setFillViewport",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
 
         return jsObject
     }
@@ -388,13 +397,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         jsObject.add("text", text)
         registerTextMethods(jsObject)
         jsObject.registerJavaMethod(this, "setCheckBoxText", "setText",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setCheckBoxChecked", "setChecked",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
         jsObject.registerJavaMethod(this, "getCheckBoxChecked", "getChecked",
-            arrayOf(Int::class.java))
+            arrayOf(V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setCheckBoxOnChange", "setOnChange",
-            arrayOf(Int::class.java, V8Function::class.java))
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
 
         return jsObject
     }
@@ -420,13 +429,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(spinner)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "setSpinnerItems", "setItems",
-            arrayOf(Int::class.java, V8Array::class.java))
+            arrayOf(V8Object::class.java, V8Array::class.java), true)
         jsObject.registerJavaMethod(this, "setSpinnerSelection", "setSelection",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "getSpinnerSelection", "getSelection",
-            arrayOf(Int::class.java))
+            arrayOf(V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setSpinnerOnChange", "setOnChange",
-            arrayOf(Int::class.java, V8Function::class.java))
+            arrayOf(V8Object::class.java, V8Function::class.java), true)
 
         return jsObject
     }
@@ -453,13 +462,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(progressBar)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "setProgressBarMax", "setMax",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setProgressBarValue", "setProgress",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "getProgressBarValue", "getProgress",
-            arrayOf(Int::class.java))
+            arrayOf(V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setProgressBarIndeterminate", "setIndeterminate",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
 
         return jsObject
     }
@@ -492,13 +501,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(layout)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "addChildToLayout", "addView",
-            arrayOf(Int::class.java, V8Object::class.java))
+            arrayOf(V8Object::class.java, V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "removeChildFromLayout", "removeView",
-            arrayOf(Int::class.java, V8Object::class.java))
+            arrayOf(V8Object::class.java, V8Object::class.java), true)
         jsObject.registerJavaMethod(this, "setLayoutOrientation", "setOrientation",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setLayoutGravity", "setGravity",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
 
         return jsObject
     }
@@ -529,11 +538,11 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         val viewId = registerView(chart)
         val jsObject = newJsObject(runtime, viewId)
         jsObject.registerJavaMethod(this, "setChartData", "setData",
-            arrayOf(Int::class.java, V8Array::class.java))
+            arrayOf(V8Object::class.java, V8Array::class.java), true)
         jsObject.registerJavaMethod(this, "setChartLabels", "setLabels",
-            arrayOf(Int::class.java, V8Array::class.java))
+            arrayOf(V8Object::class.java, V8Array::class.java), true)
         jsObject.registerJavaMethod(this, "setChartColor", "setColor",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
 
         return jsObject
     }
@@ -543,26 +552,30 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     // ------------------------------------------------------------------
 
     @Suppress("unused")
-    fun setViewVisible(viewId: Int, visible: Boolean) {
+    fun setViewVisible(receiver: V8Object, visible: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             viewRegistry[viewId]?.visibility = if (visible) View.VISIBLE else View.GONE
         }
     }
 
     @Suppress("unused")
-    fun setViewEnabled(viewId: Int, enabled: Boolean) {
+    fun setViewEnabled(receiver: V8Object, enabled: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { viewRegistry[viewId]?.isEnabled = enabled }
     }
 
     @Suppress("unused")
-    fun setViewPadding(viewId: Int, left: Int, top: Int, right: Int, bottom: Int) {
+    fun setViewPadding(receiver: V8Object, left: Int, top: Int, right: Int, bottom: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             viewRegistry[viewId]?.setPadding(dp(left), dp(top), dp(right), dp(bottom))
         }
     }
 
     @Suppress("unused")
-    fun setViewMargin(viewId: Int, left: Int, top: Int, right: Int, bottom: Int) {
+    fun setViewMargin(receiver: V8Object, left: Int, top: Int, right: Int, bottom: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] ?: return@onUiThread
             (view.layoutParams as? ViewGroup.MarginLayoutParams)?.setMargins(
@@ -572,7 +585,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setViewWidth(viewId: Int, width: Int) {
+    fun setViewWidth(receiver: V8Object, width: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] ?: return@onUiThread
             view.layoutParams?.let {
@@ -583,7 +597,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setViewHeight(viewId: Int, height: Int) {
+    fun setViewHeight(receiver: V8Object, height: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] ?: return@onUiThread
             view.layoutParams?.let {
@@ -594,12 +609,14 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setViewAlpha(viewId: Int, alpha: Float) {
+    fun setViewAlpha(receiver: V8Object, alpha: Float) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { viewRegistry[viewId]?.alpha = alpha.coerceIn(0f, 1f) }
     }
 
     @Suppress("unused")
-    fun setViewBackgroundColor(viewId: Int, color: String) {
+    fun setViewBackgroundColor(receiver: V8Object, color: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] ?: return@onUiThread
             val style = viewStyles.getOrPut(viewId) { ViewStyle() }
@@ -609,7 +626,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setViewCornerRadius(viewId: Int, radiusDp: Float) {
+    fun setViewCornerRadius(receiver: V8Object, radiusDp: Float) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] ?: return@onUiThread
             val style = viewStyles.getOrPut(viewId) { ViewStyle() }
@@ -619,24 +637,27 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun getViewId(viewId: Int): Int = viewId
+    fun getViewId(receiver: V8Object): Int = receiver.getInteger("_viewId")
 
     // ------------------------------------------------------------------
     // Text configuration methods (registered on text-capable components)
     // ------------------------------------------------------------------
 
     @Suppress("unused")
-    fun setTextViewSize(viewId: Int, size: Float) {
+    fun setTextViewSize(receiver: V8Object, size: Float) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? TextView)?.textSize = size }
     }
 
     @Suppress("unused")
-    fun setTextViewColor(viewId: Int, color: String) {
+    fun setTextViewColor(receiver: V8Object, color: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? TextView)?.setTextColor(parseColor(color)) }
     }
 
     @Suppress("unused")
-    fun setTextViewBold(viewId: Int, bold: Boolean) {
+    fun setTextViewBold(receiver: V8Object, bold: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] as? TextView ?: return@onUiThread
             textStates.getOrPut(viewId) { TextState() }.bold = bold
@@ -645,7 +666,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setTextViewItalic(viewId: Int, italic: Boolean) {
+    fun setTextViewItalic(receiver: V8Object, italic: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val view = viewRegistry[viewId] as? TextView ?: return@onUiThread
             textStates.getOrPut(viewId) { TextState() }.italic = italic
@@ -654,14 +676,16 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setTextViewAlign(viewId: Int, align: String) {
+    fun setTextViewAlign(receiver: V8Object, align: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             (viewRegistry[viewId] as? TextView)?.gravity = gravityFor(align)
         }
     }
 
     @Suppress("unused")
-    fun setTextViewAllCaps(viewId: Int, allCaps: Boolean) {
+    fun setTextViewAllCaps(receiver: V8Object, allCaps: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? TextView)?.isAllCaps = allCaps }
     }
 
@@ -670,45 +694,53 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     // ------------------------------------------------------------------
 
     @Suppress("unused")
-    fun setButtonText(viewId: Int, text: String) {
+    fun setButtonText(receiver: V8Object, text: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? Button)?.text = text }
     }
 
     @Suppress("unused")
-    fun setButtonOnTap(viewId: Int, callback: V8Function) {
+    fun setButtonOnTap(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? Button)?.setOnClickListener {
-                callback.call(runtime, null)
+                retained.call(runtime, null)
             }
         }
     }
 
     @Suppress("unused")
-    fun setLabelText(viewId: Int, text: String) {
+    fun setLabelText(receiver: V8Object, text: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? TextView)?.text = text }
     }
 
     @Suppress("unused")
-    fun getTextFieldValue(viewId: Int): String {
+    fun getTextFieldValue(receiver: V8Object): String {
+        val viewId = receiver.getInteger("_viewId")
         return onUiThread { (viewRegistry[viewId] as? EditText)?.text?.toString() ?: "" }
     }
 
     @Suppress("unused")
-    fun setTextFieldValue(viewId: Int, value: String) {
+    fun setTextFieldValue(receiver: V8Object, value: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? EditText)?.setText(value) }
     }
 
     @Suppress("unused")
-    fun setTextFieldOnChange(viewId: Int, callback: V8Function) {
+    fun setTextFieldOnChange(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? EditText)?.addTextChangedListener(
                 object : android.text.TextWatcher {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                         val params = V8Array(runtime).push(s.toString())
-                        callback.call(runtime, params)
+                        retained.call(runtime, params)
                         params.release()
                     }
                     override fun afterTextChanged(s: android.text.Editable?) {}
@@ -718,17 +750,20 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setTextFieldHint(viewId: Int, hint: String) {
+    fun setTextFieldHint(receiver: V8Object, hint: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? EditText)?.hint = hint }
     }
 
     @Suppress("unused")
-    fun setTextFieldHintColor(viewId: Int, color: String) {
+    fun setTextFieldHintColor(receiver: V8Object, color: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? EditText)?.setHintTextColor(parseColor(color)) }
     }
 
     @Suppress("unused")
-    fun setTextFieldInputType(viewId: Int, type: String) {
+    fun setTextFieldInputType(receiver: V8Object, type: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val field = viewRegistry[viewId] as? EditText ?: return@onUiThread
             field.inputType = when (type.lowercase()) {
@@ -743,7 +778,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setTextFieldMaxLength(viewId: Int, maxLength: Int) {
+    fun setTextFieldMaxLength(receiver: V8Object, maxLength: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val field = viewRegistry[viewId] as? EditText ?: return@onUiThread
             field.filters = arrayOf(android.text.InputFilter.LengthFilter(maxLength))
@@ -751,7 +787,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setListViewItems(viewId: Int, items: V8Array) {
+    fun setListViewItems(receiver: V8Object, items: V8Array) {
+        val viewId = receiver.getInteger("_viewId")
         val listView = viewRegistry[viewId] as? android.widget.ListView ?: return
         val itemList = mutableListOf<String>()
 
@@ -764,24 +801,28 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setListViewOnItemTap(viewId: Int, callback: V8Function) {
+    fun setListViewOnItemTap(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? android.widget.ListView)?.setOnItemClickListener { _, _, position, _ ->
                 val params = V8Array(runtime).push(position)
-                callback.call(runtime, params)
+                retained.call(runtime, params)
                 params.release()
             }
         }
     }
 
     @Suppress("unused")
-    fun setListViewSelection(viewId: Int, index: Int) {
+    fun setListViewSelection(receiver: V8Object, index: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? android.widget.ListView)?.setSelection(index) }
     }
 
     @Suppress("unused")
-    fun setImageBase64(viewId: Int, base64: String) {
+    fun setImageBase64(receiver: V8Object, base64: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val imageView = viewRegistry[viewId] as? ImageView ?: return@onUiThread
             try {
@@ -797,7 +838,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setImageScaleType(viewId: Int, scaleType: String) {
+    fun setImageScaleType(receiver: V8Object, scaleType: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val imageView = viewRegistry[viewId] as? ImageView ?: return@onUiThread
             imageView.scaleType = when (scaleType.lowercase()) {
@@ -814,49 +856,58 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setSwitchText(viewId: Int, text: String) {
+    fun setSwitchText(receiver: V8Object, text: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? androidx.appcompat.widget.SwitchCompat)?.text = text }
     }
 
     @Suppress("unused")
-    fun setSwitchChecked(viewId: Int, checked: Boolean) {
+    fun setSwitchChecked(receiver: V8Object, checked: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? androidx.appcompat.widget.SwitchCompat)?.isChecked = checked }
     }
 
     @Suppress("unused")
-    fun getSwitchChecked(viewId: Int): Boolean {
+    fun getSwitchChecked(receiver: V8Object): Boolean {
+        val viewId = receiver.getInteger("_viewId")
         return onUiThread { (viewRegistry[viewId] as? androidx.appcompat.widget.SwitchCompat)?.isChecked ?: false }
     }
 
     @Suppress("unused")
-    fun setSwitchOnChange(viewId: Int, callback: V8Function) {
+    fun setSwitchOnChange(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? androidx.appcompat.widget.SwitchCompat)?.setOnCheckedChangeListener { _, isChecked ->
                 val params = V8Array(runtime).push(isChecked)
-                callback.call(runtime, params)
+                retained.call(runtime, params)
                 params.release()
             }
         }
     }
 
     @Suppress("unused")
-    fun setSliderValue(viewId: Int, value: Int) {
+    fun setSliderValue(receiver: V8Object, value: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? SeekBar)?.progress = value }
     }
 
     @Suppress("unused")
-    fun getSliderValue(viewId: Int): Int {
+    fun getSliderValue(receiver: V8Object): Int {
+        val viewId = receiver.getInteger("_viewId")
         return onUiThread { (viewRegistry[viewId] as? SeekBar)?.progress ?: 0 }
     }
 
     @Suppress("unused")
-    fun setSliderMax(viewId: Int, max: Int) {
+    fun setSliderMax(receiver: V8Object, max: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? SeekBar)?.max = max }
     }
 
     @Suppress("unused")
-    fun setSliderMin(viewId: Int, min: Int) {
+    fun setSliderMin(receiver: V8Object, min: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val slider = viewRegistry[viewId] as? SeekBar ?: return@onUiThread
             if (android.os.Build.VERSION.SDK_INT >= 26) {
@@ -866,14 +917,16 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setSliderOnChange(viewId: Int, callback: V8Function) {
+    fun setSliderOnChange(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? SeekBar)?.setOnSeekBarChangeListener(
                 object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                         val params = V8Array(runtime).push(progress)
-                        callback.call(runtime, params)
+                        retained.call(runtime, params)
                         params.release()
                     }
                     override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -884,34 +937,40 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setCheckBoxText(viewId: Int, text: String) {
+    fun setCheckBoxText(receiver: V8Object, text: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? CheckBox)?.text = text }
     }
 
     @Suppress("unused")
-    fun setCheckBoxChecked(viewId: Int, checked: Boolean) {
+    fun setCheckBoxChecked(receiver: V8Object, checked: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? CheckBox)?.isChecked = checked }
     }
 
     @Suppress("unused")
-    fun getCheckBoxChecked(viewId: Int): Boolean {
+    fun getCheckBoxChecked(receiver: V8Object): Boolean {
+        val viewId = receiver.getInteger("_viewId")
         return onUiThread { (viewRegistry[viewId] as? CheckBox)?.isChecked ?: false }
     }
 
     @Suppress("unused")
-    fun setCheckBoxOnChange(viewId: Int, callback: V8Function) {
+    fun setCheckBoxOnChange(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? CheckBox)?.setOnCheckedChangeListener { _, isChecked ->
                 val params = V8Array(runtime).push(isChecked)
-                callback.call(runtime, params)
+                retained.call(runtime, params)
                 params.release()
             }
         }
     }
 
     @Suppress("unused")
-    fun setSpinnerItems(viewId: Int, items: V8Array) {
+    fun setSpinnerItems(receiver: V8Object, items: V8Array) {
+        val viewId = receiver.getInteger("_viewId")
         val spinner = viewRegistry[viewId] as? Spinner ?: return
         val itemList = mutableListOf<String>()
         for (i in 0 until items.length()) {
@@ -923,25 +982,29 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setSpinnerSelection(viewId: Int, index: Int) {
+    fun setSpinnerSelection(receiver: V8Object, index: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? Spinner)?.setSelection(index) }
     }
 
     @Suppress("unused")
-    fun getSpinnerSelection(viewId: Int): Int {
+    fun getSpinnerSelection(receiver: V8Object): Int {
+        val viewId = receiver.getInteger("_viewId")
         return onUiThread { (viewRegistry[viewId] as? Spinner)?.selectedItemPosition ?: 0 }
     }
 
     @Suppress("unused")
-    fun setSpinnerOnChange(viewId: Int, callback: V8Function) {
+    fun setSpinnerOnChange(receiver: V8Object, callback: V8Function) {
+        val viewId = receiver.getInteger("_viewId")
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             (viewRegistry[viewId] as? Spinner)?.onItemSelectedListener =
                 object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                         val label = parent?.getItemAtPosition(position)?.toString() ?: ""
                         val params = V8Array(runtime).push(position).push(label)
-                        callback.call(runtime, params)
+                        retained.call(runtime, params)
                         params.release()
                     }
                     override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -950,27 +1013,32 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setProgressBarMax(viewId: Int, max: Int) {
+    fun setProgressBarMax(receiver: V8Object, max: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? ProgressBar)?.max = max }
     }
 
     @Suppress("unused")
-    fun setProgressBarValue(viewId: Int, value: Int) {
+    fun setProgressBarValue(receiver: V8Object, value: Int) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? ProgressBar)?.progress = value }
     }
 
     @Suppress("unused")
-    fun getProgressBarValue(viewId: Int): Int {
+    fun getProgressBarValue(receiver: V8Object): Int {
+        val viewId = receiver.getInteger("_viewId")
         return onUiThread { (viewRegistry[viewId] as? ProgressBar)?.progress ?: 0 }
     }
 
     @Suppress("unused")
-    fun setProgressBarIndeterminate(viewId: Int, indeterminate: Boolean) {
+    fun setProgressBarIndeterminate(receiver: V8Object, indeterminate: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? ProgressBar)?.isIndeterminate = indeterminate }
     }
 
     @Suppress("unused")
-    fun setChartData(viewId: Int, data: V8Array) {
+    fun setChartData(receiver: V8Object, data: V8Array) {
+        val viewId = receiver.getInteger("_viewId")
         val values = mutableListOf<Float>()
         for (i in 0 until data.length()) {
             when (data.getType(i)) {
@@ -982,7 +1050,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setChartLabels(viewId: Int, labels: V8Array) {
+    fun setChartLabels(receiver: V8Object, labels: V8Array) {
+        val viewId = receiver.getInteger("_viewId")
         val labelList = mutableListOf<String>()
         for (i in 0 until labels.length()) {
             labelList.add(labels.getString(i))
@@ -991,7 +1060,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setChartColor(viewId: Int, color: String) {
+    fun setChartColor(receiver: V8Object, color: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val chart = viewRegistry[viewId] as? SimpleChartView ?: return@onUiThread
             chart.lineColor = ChartScale.parseColorOr(color, chart.lineColor)
@@ -1003,7 +1073,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     // ------------------------------------------------------------------
 
     @Suppress("unused")
-    fun addChildToLayout(layoutId: Int, childObject: V8Object) {
+    fun addChildToLayout(receiver: V8Object, childObject: V8Object) {
+        val layoutId = receiver.getInteger("_viewId")
         val childId = childObject.getInteger("_viewId")
         val child = viewRegistry[childId] ?: return
         val layout = viewRegistry[layoutId] as? ViewGroup ?: return
@@ -1014,7 +1085,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun removeChildFromLayout(layoutId: Int, childObject: V8Object) {
+    fun removeChildFromLayout(receiver: V8Object, childObject: V8Object) {
+        val layoutId = receiver.getInteger("_viewId")
         val childId = childObject.getInteger("_viewId")
         val child = viewRegistry[childId] ?: return
         val layout = viewRegistry[layoutId] as? ViewGroup ?: return
@@ -1022,7 +1094,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setLayoutOrientation(viewId: Int, orientation: String) {
+    fun setLayoutOrientation(receiver: V8Object, orientation: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             val layout = viewRegistry[viewId] as? LinearLayout ?: return@onUiThread
             layout.orientation = if (orientation.equals("horizontal", true)) {
@@ -1034,14 +1107,16 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setLayoutGravity(viewId: Int, gravity: String) {
+    fun setLayoutGravity(receiver: V8Object, gravity: String) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread {
             (viewRegistry[viewId] as? LinearLayout)?.gravity = gravityFor(gravity)
         }
     }
 
     @Suppress("unused")
-    fun addChildToScrollView(scrollViewId: Int, childObject: V8Object) {
+    fun addChildToScrollView(receiver: V8Object, childObject: V8Object) {
+        val scrollViewId = receiver.getInteger("_viewId")
         val childId = childObject.getInteger("_viewId")
         val child = viewRegistry[childId] ?: return
         val scrollView = viewRegistry[scrollViewId] as? ScrollView ?: return
@@ -1053,7 +1128,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun removeChildFromScrollView(scrollViewId: Int, childObject: V8Object) {
+    fun removeChildFromScrollView(receiver: V8Object, childObject: V8Object) {
+        val scrollViewId = receiver.getInteger("_viewId")
         val childId = childObject.getInteger("_viewId")
         val child = viewRegistry[childId] ?: return
         val scrollView = viewRegistry[scrollViewId] as? ScrollView ?: return
@@ -1061,7 +1137,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     }
 
     @Suppress("unused")
-    fun setScrollViewFillViewport(viewId: Int, fillViewport: Boolean) {
+    fun setScrollViewFillViewport(receiver: V8Object, fillViewport: Boolean) {
+        val viewId = receiver.getInteger("_viewId")
         onUiThread { (viewRegistry[viewId] as? ScrollView)?.isFillViewport = fillViewport }
     }
 
@@ -1189,15 +1266,16 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     @Suppress("unused")
     fun showConfirm(title: String, message: String, callback: V8Function) {
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             android.app.AlertDialog.Builder(context)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("OK") { _, _ ->
-                    invokeCallback(callback, runtime) { it.push(true) }
+                    invokeCallback(retained, runtime) { it.push(true) }
                 }
                 .setNegativeButton("Cancel") { _, _ ->
-                    invokeCallback(callback, runtime) { it.push(false) }
+                    invokeCallback(retained, runtime) { it.push(false) }
                 }
                 .show()
         }
@@ -1209,6 +1287,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     @Suppress("unused")
     fun showPrompt(title: String, message: String, callback: V8Function) {
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         onUiThread {
             val input = EditText(context)
             android.app.AlertDialog.Builder(context)
@@ -1216,12 +1295,12 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
                 .setMessage(message)
                 .setView(input)
                 .setPositiveButton("OK") { _, _ ->
-                    invokeCallback(callback, runtime) {
+                    invokeCallback(retained, runtime) {
                         it.push(input.text.toString()).push(false)
                     }
                 }
                 .setNegativeButton("Cancel") { _, _ ->
-                    invokeCallback(callback, runtime) { it.push("").push(true) }
+                    invokeCallback(retained, runtime) { it.push("").push(true) }
                 }
                 .show()
         }
@@ -1233,12 +1312,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     @Suppress("unused")
     fun showListPicker(title: String, items: V8Array, callback: V8Function) {
         val runtime = this.runtime ?: return
+        val retained = retainCallback(callback)
         val labels = (0 until items.length()).map { items.getString(it) }.toTypedArray()
         onUiThread {
             android.app.AlertDialog.Builder(context)
                 .setTitle(title)
                 .setItems(labels) { _, which ->
-                    invokeCallback(callback, runtime) {
+                    invokeCallback(retained, runtime) {
                         it.push(which).push(labels[which])
                     }
                 }
@@ -1274,39 +1354,39 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
 
     private fun registerCommonMethods(jsObject: V8Object) {
         jsObject.registerJavaMethod(this, "setViewVisible", "setVisible",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
         jsObject.registerJavaMethod(this, "setViewEnabled", "setEnabled",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
         jsObject.registerJavaMethod(this, "setViewPadding", "setPadding",
-            arrayOf(Int::class.java, Int::class.java, Int::class.java, Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java, Int::class.java, Int::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setViewMargin", "setMargin",
-            arrayOf(Int::class.java, Int::class.java, Int::class.java, Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java, Int::class.java, Int::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setViewWidth", "setWidth",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setViewHeight", "setHeight",
-            arrayOf(Int::class.java, Int::class.java))
+            arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setViewAlpha", "setAlpha",
-            arrayOf(Int::class.java, Float::class.java))
+            arrayOf(V8Object::class.java, Float::class.java), true)
         jsObject.registerJavaMethod(this, "setViewBackgroundColor", "setBackgroundColor",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setViewCornerRadius", "setCornerRadius",
-            arrayOf(Int::class.java, Float::class.java))
-        jsObject.registerJavaMethod(this, "getViewId", "getViewId", arrayOf(Int::class.java))
+            arrayOf(V8Object::class.java, Float::class.java), true)
+        jsObject.registerJavaMethod(this, "getViewId", "getViewId", arrayOf(V8Object::class.java), true)
     }
 
     private fun registerTextMethods(jsObject: V8Object) {
         jsObject.registerJavaMethod(this, "setTextViewSize", "setTextSize",
-            arrayOf(Int::class.java, Float::class.java))
+            arrayOf(V8Object::class.java, Float::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewColor", "setTextColor",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewBold", "setBold",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewItalic", "setItalic",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewAlign", "setTextAlign",
-            arrayOf(Int::class.java, String::class.java))
+            arrayOf(V8Object::class.java, String::class.java), true)
         jsObject.registerJavaMethod(this, "setTextViewAllCaps", "setAllCaps",
-            arrayOf(Int::class.java, Boolean::class.java))
+            arrayOf(V8Object::class.java, Boolean::class.java), true)
     }
 
     /**
@@ -1410,6 +1490,20 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         else -> dp(value)
     }
 
+    /** Retain [callback] beyond the current call (J2V8 releases parameters on return). */
+    private fun retainCallback(callback: V8Function): V8Function {
+        val retained = callback.twin()
+        retainedCallbacks.add(retained)
+        return retained
+    }
+
+    /** Release a retained callback twin once it can no longer fire. */
+    private fun releaseCallback(callback: V8Function) {
+        if (retainedCallbacks.remove(callback) && !callback.isReleased) {
+            callback.release()
+        }
+    }
+
     private fun invokeCallback(callback: V8Function, runtime: V8, fill: (V8Array) -> Unit) {
         try {
             val params = V8Array(runtime)
@@ -1418,6 +1512,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
             params.release()
         } catch (e: Exception) {
             // The callback may have been released after script teardown; ignore
+        } finally {
+            // Dialog callbacks are one-shot: release the retained twin
+            releaseCallback(callback)
         }
     }
 

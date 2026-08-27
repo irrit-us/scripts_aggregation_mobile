@@ -50,6 +50,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     // Timer bookkeeping so scripts can clear timers and the engine can clean up
     private val timerIdGenerator = AtomicInteger(0)
     private val activeTimers = ConcurrentHashMap<Int, Runnable>()
+    private val activeTimerCallbacks = ConcurrentHashMap<Int, V8Object>()
 
     init {
         setupGlobalEnvironment()
@@ -211,14 +212,22 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     fun setTimeout(callback: V8Object, delay: Int): Int {
         if (callback.isReleased) return 0
 
+        // J2V8 releases parameter handles when this method returns; retain a
+        // twin so the callback survives until the timer fires or is cleared.
+        val retained = callback.twin()
         val timerId = timerIdGenerator.incrementAndGet()
         val runnable = Runnable {
             activeTimers.remove(timerId)
-            if (!callback.isReleased) {
-                (callback as? V8Function)?.call(runtime, null)
+            activeTimerCallbacks.remove(timerId)
+            try {
+                (retained as? V8Function)?.call(runtime, null)
+            } finally {
+                // One-shot: release the twin right after it fired
+                if (!retained.isReleased) retained.release()
             }
         }
         activeTimers[timerId] = runnable
+        activeTimerCallbacks[timerId] = retained
         mainHandler.postDelayed(runnable, delay.coerceAtLeast(0).toLong())
         return timerId
     }
@@ -230,22 +239,21 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     fun setInterval(callback: V8Object, interval: Int): Int {
         if (callback.isReleased) return 0
 
+        // Retained twin; released when the interval is cleared or the engine
+        // is released — NOT after individual fires.
+        val retained = callback.twin()
         val timerId = timerIdGenerator.incrementAndGet()
         val runnable = object : Runnable {
             override fun run() {
                 // Timer was cleared; stop re-scheduling
                 if (activeTimers[timerId] !== this) return
 
-                if (callback.isReleased) {
-                    activeTimers.remove(timerId)
-                    return
-                }
-
-                (callback as? V8Function)?.call(runtime, null)
+                (retained as? V8Function)?.call(runtime, null)
                 mainHandler.postDelayed(this, interval.coerceAtLeast(0).toLong())
             }
         }
         activeTimers[timerId] = runnable
+        activeTimerCallbacks[timerId] = retained
         mainHandler.post(runnable)
         return timerId
     }
@@ -256,6 +264,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     @Suppress("unused")
     fun clearTimeout(timerId: Int) {
         activeTimers.remove(timerId)?.let { mainHandler.removeCallbacks(it) }
+        activeTimerCallbacks.remove(timerId)?.let { if (!it.isReleased) it.release() }
     }
 
     /**
@@ -269,6 +278,19 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     private fun clearAllTimers() {
         activeTimers.forEach { (_, runnable) -> mainHandler.removeCallbacks(runnable) }
         activeTimers.clear()
+        val callbacks = activeTimerCallbacks.values.toList()
+        activeTimerCallbacks.clear()
+        if (callbacks.isEmpty()) return
+        // V8 handles may only be released on the V8 (main) thread; stop() can
+        // arrive from the resource-monitor coroutine on a background thread.
+        val releaseAll = Runnable {
+            callbacks.forEach { if (!it.isReleased) it.release() }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            releaseAll.run()
+        } else {
+            mainHandler.post(releaseAll)
+        }
     }
 
     /**

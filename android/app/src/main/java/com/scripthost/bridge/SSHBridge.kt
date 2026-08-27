@@ -199,6 +199,8 @@ class SSHBridge(
 
         callback.call(runtime, params)
         params.release()
+        // One-shot async callback: release the handle obtained by extractCallback
+        callback.release()
     }
 
     /**
@@ -216,5 +218,7 @@ class SSHBridge(
 
         callback.call(runtime, params)
         params.release()
+        // One-shot async callback: release the handle obtained by extractCallback
+        callback.release()
     }
 }

@@ -122,7 +122,10 @@ class SystemBridge(
                 return
             }
             val headers = if (parameters.length() >= 3) {
-                readHeaders(parameters.getObject(1))
+                val headersObject = parameters.getObject(1)
+                val parsed = readHeaders(headersObject)
+                headersObject.release()
+                parsed
             } else {
                 null
             }
@@ -149,7 +152,10 @@ class SystemBridge(
             }
             val hasHeaders = parameters.length() >= 4
             val headers = if (hasHeaders) {
-                readHeaders(parameters.getObject(1))
+                val headersObject = parameters.getObject(1)
+                val parsed = readHeaders(headersObject)
+                headersObject.release()
+                parsed
             } else {
                 null
             }
@@ -344,6 +350,9 @@ class SystemBridge(
 
     private val sensorListeners = mutableMapOf<Int, SensorEventListener>()
 
+    /** Retained sensor callback twins; released in [stopSensor]. */
+    private val sensorCallbacks = mutableMapOf<Int, V8Function>()
+
     /**
      * Get accelerometer data
      */
@@ -369,8 +378,13 @@ class SystemBridge(
     private fun startSensor(sensorType: Int, callback: V8Function) {
         val sensor = sensorManager.getDefaultSensor(sensorType) ?: return
 
+        // J2V8 releases parameter handles when the registered method returns;
+        // retain a twin for the lifetime of the listener.
+        val retained = callback.twin()
+
         // Replace any existing listener for this sensor type so it is not leaked
         sensorListeners.remove(sensorType)?.let { sensorManager.unregisterListener(it) }
+        sensorCallbacks.remove(sensorType)?.let { if (!it.isReleased) it.release() }
 
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
@@ -383,7 +397,7 @@ class SystemBridge(
                 // touched from the main thread.
                 mainHandler.post {
                     val runtime = this@SystemBridge.runtime ?: return@post
-                    if (callback.isReleased) return@post
+                    if (retained.isReleased) return@post
 
                     val data = V8Object(runtime)
                     data.add("x", x)
@@ -391,7 +405,7 @@ class SystemBridge(
                     data.add("z", z)
 
                     val params = V8Array(runtime).push(data)
-                    callback.call(runtime, params)
+                    retained.call(runtime, params)
 
                     data.release()
                     params.release()
@@ -402,6 +416,7 @@ class SystemBridge(
         }
 
         sensorListeners[sensorType] = listener
+        sensorCallbacks[sensorType] = retained
         sensorManager.registerListener(
             listener,
             sensor,
@@ -416,6 +431,8 @@ class SystemBridge(
     fun stopSensor() {
         sensorListeners.values.forEach { sensorManager.unregisterListener(it) }
         sensorListeners.clear()
+        sensorCallbacks.values.forEach { if (!it.isReleased) it.release() }
+        sensorCallbacks.clear()
     }
 
     // Device API
@@ -503,5 +520,7 @@ class SystemBridge(
 
         callback.call(runtime, params)
         params.release()
+        // One-shot async callback: release the handle obtained by extractCallback
+        callback.release()
     }
 }
