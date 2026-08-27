@@ -3,6 +3,8 @@
 // controls, common styling configuration, and dialog helpers. All properties
 // are applied statically; the interface intentionally has no animation support.
 // Permissions: None
+UI.setTitle("UI Controls");
+
 
 // Root background
 UI.setBackgroundColor("#ECEFF1");

@@ -6,6 +6,8 @@
 //   MONITOR_API_KEY       - optional Bearer token (password field)
 //   MONITOR_INTERVAL_SEC  - poll interval in seconds (default 5)
 // Permissions: INTERNET, CONFIG
+UI.setTitle("Server Monitor");
+
 
 Config.schema(JSON.stringify([
     { key: "MONITOR_URL", label: "Monitor URL", type: "text" },

@@ -1,6 +1,8 @@
 // Example 6: Storage Demo
 // Demonstrates file storage capabilities
 // Permissions: READ_STORAGE, WRITE_STORAGE
+UI.setTitle("Storage");
+
 
 let keyInput = new TextField("Enter key");
 UI.addView(keyInput);

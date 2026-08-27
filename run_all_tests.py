@@ -72,6 +72,12 @@ def main():
         "Integration Test Suite"
     )
 
+    # Test 5: Plan Parser Tests
+    results['plan_parser'] = run_command(
+        f"{sys.executable} tests/run_plan_parser_test.py",
+        "Plan Parser Unit Tests"
+    )
+
     # Print Summary
     print("\n" + "="*70)
     print("FINAL TEST SUMMARY")
@@ -82,6 +88,7 @@ def main():
         'validation': 'Code Validation Suite',
         'examples': 'JavaScript Example Tests',
         'integration': 'Integration Test Suite',
+        'plan_parser': 'Plan Parser Unit Tests',
     }
 
     passed = sum(1 for v in results.values() if v)

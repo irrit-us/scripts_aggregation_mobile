@@ -1,6 +1,8 @@
 // Example 2: Counter App
 // A counter with increment and decrement buttons
 // Permissions: None
+UI.setTitle("Counter");
+
 
 let count = 0;
 
@@ -8,7 +10,6 @@ let count = 0;
 // Counter display
 let counterLabel = new Label("Count: 0");
 counterLabel.setTextSize(32);
-counterLabel.setTextColor("#000000");
 UI.addView(counterLabel);
 
 // Increment button

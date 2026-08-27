@@ -4,6 +4,8 @@
 // Config.schema(); after it has run once, they appear in Settings under
 // the script's section.
 // Permissions: SSH, CONFIG
+UI.setTitle("tmux Console");
+
 
 Config.schema(JSON.stringify([
     { key: "TMUX_HOST", label: "Host", type: "text" },

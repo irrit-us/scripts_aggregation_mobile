@@ -4,6 +4,8 @@
 // daily recurring reminders with Scheduler.scheduleDaily, and
 // Scheduler.cancel. WorkManager timing is inexact (minute-scale).
 // Permissions: NOTIFICATIONS
+UI.setTitle("Scheduled Notifications");
+
 
 // Immediate notification (a real system notification in the status bar /
 // notification drawer - not an in-app toast or dialog)

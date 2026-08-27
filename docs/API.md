@@ -472,6 +472,16 @@ Set the background color of the root container.
 UI.setBackgroundColor("#ECEFF1");
 ```
 
+### UI.setTitle(title)
+
+Set the script's display title in the app's top bar. Call it once at
+startup. When a script never sets a title, the bar falls back to a
+prettified script name (`daily_fitness` → "Daily Fitness").
+
+```javascript
+UI.setTitle("Daily Fitness");
+```
+
 ### UI.pushPage()
 
 Push a new empty page onto the script's page stack. The new page becomes the
@@ -690,8 +700,12 @@ field objects:
 - `key` (string, required) - Config key read back via `Config.get`
 - `label` (string, optional) - Display label; defaults to `key`
 - `type` (string, required) - `"text"`, `"password"`, `"number"`,
-  `"boolean"`, `"multiline"` (multi-line text input), or `"select"`
-  (select requires a non-empty `options` array)
+  `"boolean"`, `"multiline"` (long multi-line text), or `"select"`
+  (select requires a non-empty `options` array). In Settings, `multiline`
+  fields render as a compact preview row (long values are never shown in
+  full); tapping it opens a full-screen editor sub-screen (X / right-fling
+  to discard, Save at the top-right to persist). All other field types are
+  edited inline and saved via the section's Save button
 - `options` (array of strings, select only)
 - `default` (string/number/boolean, optional)
 

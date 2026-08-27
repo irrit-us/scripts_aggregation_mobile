@@ -2,6 +2,8 @@
 // Demonstrates UI.pushPage()/UI.popPage(): tapping an item pushes a detail
 // page; the Back button (or the device back button) pops it again.
 // Permissions: None
+UI.setTitle("Sub-Screens");
+
 
 let items = [
     { name: "Inbox", text: "Your inbox holds incoming messages that are waiting to be read." },

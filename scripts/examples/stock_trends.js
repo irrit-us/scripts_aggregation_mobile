@@ -4,6 +4,8 @@
 // The script declares its configurable fields via Config.schema(); after
 // it has run once, they appear in Settings under the script's section.
 // Permissions: INTERNET, CONFIG
+UI.setTitle("Stock Trends");
+
 
 Config.schema(JSON.stringify([
     { key: "STOCK_API_URL", label: "API URL (with {symbol})", type: "text" },

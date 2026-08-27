@@ -61,6 +61,9 @@
     <string name="keep_screen_on_label">Keep screen on while running</string>
     <string name="open_drawer_on_launch_label">Open drawer on launch</string>
     <string name="script_config_saved">%1$s settings saved</string>
+    <string name="saved">Saved</string>
+    <string name="edit_hint">Edit ›</string>
+    <string name="empty_preview">(empty)</string>
     <string name="theme_follow_system">Follow system</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

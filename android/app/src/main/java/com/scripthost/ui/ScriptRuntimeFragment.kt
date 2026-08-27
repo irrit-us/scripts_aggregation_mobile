@@ -47,6 +47,9 @@ class ScriptRuntimeFragment : Fragment() {
         /** A script started running; the host shows the running header state. */
         fun onScriptSessionStarted(scriptName: String) {}
 
+        /** The script set its own display title via UI.setTitle. */
+        fun onScriptTitle(title: String) {}
+
         /** The script session ended (stop button, X/back at the root page). */
         fun onScriptSessionEnded()
 
@@ -284,6 +287,12 @@ class ScriptRuntimeFragment : Fragment() {
                 uiBridge.onPageDepthChanged = { depth ->
                     activity?.runOnUiThread {
                         if (isAdded) host?.onScriptPageDepthChanged(depth)
+                    }
+                }
+                // Forward script-declared display titles to the top bar
+                uiBridge.onSetTitle = { title ->
+                    activity?.runOnUiThread {
+                        if (isAdded) host?.onScriptTitle(title)
                     }
                 }
                 val systemBridge = SystemBridge(requireContext(), permissionManager, scriptId)

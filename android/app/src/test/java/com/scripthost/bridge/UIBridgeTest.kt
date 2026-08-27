@@ -122,4 +122,25 @@ class UIBridgeTest {
             .isEqualTo(Paint.UNDERLINE_TEXT_FLAG)
         assertThat(textView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG).isEqualTo(0)
     }
+
+    @Test
+    fun applyTextColor_blankRestoresDefault() {
+        val textView = android.widget.TextView(ApplicationProvider.getApplicationContext())
+        val defaultColors = textView.textColors
+
+        UIBridge.applyTextColor(textView, "#888888", defaultColors)
+        assertThat(textView.currentTextColor).isEqualTo(0xFF888888.toInt())
+
+        UIBridge.applyTextColor(textView, "", defaultColors)
+        assertThat(textView.textColors).isEqualTo(defaultColors)
+    }
+
+    @Test
+    fun applyTextColor_blankWithoutDefaultIsNoOp() {
+        val textView = android.widget.TextView(ApplicationProvider.getApplicationContext())
+        textView.setTextColor(0xFF123456.toInt())
+
+        UIBridge.applyTextColor(textView, "", null)
+        assertThat(textView.currentTextColor).isEqualTo(0xFF123456.toInt())
+    }
 }

@@ -3,6 +3,8 @@
 // Each task is a CheckBox: checking it grays the text out and strikes
 // it through; unchecking restores the default style.
 // Permissions: None
+UI.setTitle("Todo List");
+
 
 let todos = [];
 
@@ -36,7 +38,7 @@ function addTodo(text) {
     check.setOnChange(function(checked) {
         item.done = checked;
         check.setStrikeThrough(checked);
-        check.setTextColor(checked ? "#888888" : "#212121");
+        check.setTextColor(checked ? "#888888" : "");
         console.log((checked ? "Done: " : "Reopened: ") + item.text);
     });
     item.checkBox = check;

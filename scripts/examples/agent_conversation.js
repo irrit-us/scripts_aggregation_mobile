@@ -10,6 +10,8 @@
 //   AGENT_API_URL   - optional base URL (default https://api.openai.com/v1)
 //   AGENT_MODEL     - model select (default gpt-4o-mini)
 // Permissions: INTERNET, CONFIG.
+UI.setTitle("Agent Chat");
+
 
 Config.schema(JSON.stringify([
     { key: "OPENAI_API_KEY", label: "API Key", type: "password" },

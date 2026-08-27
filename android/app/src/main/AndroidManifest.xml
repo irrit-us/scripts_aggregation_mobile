@@ -83,6 +83,11 @@
             android:exported="false"
             android:theme="@style/Theme.ScriptHost" />
 
+        <activity
+            android:name=".ui.ConfigValueEditorActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ScriptHost" />
+
         <!-- Markdown viewer for .md / .markdown files opened from other apps -->
         <activity
             android:name=".ui.MarkdownViewerActivity"

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Full-screen editor sub-screen for long config values: `multiline` schema
+  fields in Settings now render as a compact preview row (max 2 lines,
+  ellipsized, with an Edit affordance) that opens
+  `ConfigValueEditorActivity` — title = field label, large scrollable
+  multiline editor, Save at the top-right (persists to ConfigStore and
+  closes), ✕ / right-fling discards. These fields save exclusively through
+  the editor; the section Save button no longer touches them
 - New `Config.schema` field type `multiline` (multi-line text input in
   Settings); `daily_fitness.js` was reworked into a configurable markdown
   checklist using it (`FITNESS_PLAN_MD`) with per-day done-state persisted

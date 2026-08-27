@@ -5,6 +5,8 @@
 // The interval is always cleared before it is re-created, so changing the
 // BPM or toggling start/stop never stacks multiple timers.
 // Permissions: VIBRATE (grant when prompted).
+UI.setTitle("Metronome");
+
 
 let COLOR_ACCENT = "#FF5722";
 let COLOR_BEAT = "#2196F3";

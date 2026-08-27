@@ -57,6 +57,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     private val viewStyles = ConcurrentHashMap<Int, ViewStyle>()
     private val textStates = ConcurrentHashMap<Int, TextState>()
 
+    /** Theme-default text colors captured at view registration, for blank resets. */
+    private val defaultTextColors = ConcurrentHashMap<Int, android.content.res.ColorStateList>()
+
     /**
      * Retained callback twins. J2V8 auto-releases V8Value parameters when a
      * registered method returns, so callbacks that fire later are kept as
@@ -82,6 +85,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
      * that update UI must marshal to the main thread themselves.
      */
     var onPageDepthChanged: ((Int) -> Unit)? = null
+
+    /**
+     * Invoked when the script sets its display title via `UI.setTitle(...)`.
+     * Called on the engine thread; hosts that update UI must marshal to the
+     * main thread themselves.
+     */
+    var onSetTitle: ((String) -> Unit)? = null
 
     /** The page script UI currently lands in (top of the stack). */
     private val currentPage: LinearLayout?
@@ -109,6 +119,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         uiObject.registerJavaMethod(this, "pushPage", "pushPage", emptyArray())
         uiObject.registerJavaMethod(this, "popPage", "popPage", emptyArray())
         uiObject.registerJavaMethod(this, "pageDepth", "pageDepth", emptyArray())
+        uiObject.registerJavaMethod(this, "setTitle", "setTitle", arrayOf(String::class.java))
         uiObject.registerJavaMethod(this, "setRootBackgroundColor", "setBackgroundColor",
             arrayOf(String::class.java))
 
@@ -154,6 +165,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         textStates.clear()
         pageStack.clear()
         onPageDepthChanged = null
+        onSetTitle = null
         runtime = null
     }
 
@@ -703,7 +715,12 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     @Suppress("unused")
     fun setTextViewColor(receiver: V8Object, color: String) {
         val viewId = receiver.getInteger("_viewId")
-        onUiThread { (viewRegistry[viewId] as? TextView)?.setTextColor(parseColor(color)) }
+        onUiThread {
+            val view = viewRegistry[viewId] as? TextView ?: return@onUiThread
+            // Blank resets to the theme default captured at registration;
+            // scripts use this to undo a custom color (e.g. "done" gray).
+            applyTextColor(view, color, defaultTextColors[viewId])
+        }
     }
 
     @Suppress("unused")
@@ -1323,6 +1340,15 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         onUiThread { rootView.setBackgroundColor(parseColor(color)) }
     }
 
+    /**
+     * `UI.setTitle(title)` — the script's display title for the top bar.
+     * Hosts fall back to a prettified script name when never called.
+     */
+    @Suppress("unused")
+    fun setTitle(title: String) {
+        onSetTitle?.invoke(title)
+    }
+
     // ------------------------------------------------------------------
     // Dialogs
     // ------------------------------------------------------------------
@@ -1520,6 +1546,9 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     private fun registerView(view: View): Int {
         val viewId = nextViewId++
         viewRegistry[viewId] = view
+        if (view is TextView) {
+            defaultTextColors[viewId] = view.textColors
+        }
         return viewId
     }
 
@@ -1546,13 +1575,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         return false
     }
 
-    private fun parseColor(colorString: String): Int {
-        return try {
-            Color.parseColor(colorString)
-        } catch (e: Exception) {
-            Color.BLACK
-        }
-    }
+    private fun parseColor(colorString: String): Int = parseColorSafe(colorString)
 
     private fun defaultLayoutParams(): LinearLayout.LayoutParams {
         return LinearLayout.LayoutParams(
@@ -1643,6 +1666,30 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
                 textView.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
             } else {
                 textView.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            }
+        }
+
+        /**
+         * Apply a text color, or restore [defaultColors] when [color] is
+         * blank. V8-free so it is JVM-testable.
+         */
+        internal fun applyTextColor(
+            textView: TextView,
+            color: String,
+            defaultColors: android.content.res.ColorStateList?
+        ) {
+            if (color.isBlank()) {
+                defaultColors?.let { textView.setTextColor(it) }
+            } else {
+                textView.setTextColor(parseColorSafe(color))
+            }
+        }
+
+        internal fun parseColorSafe(colorString: String): Int {
+            return try {
+                Color.parseColor(colorString)
+            } catch (e: Exception) {
+                Color.BLACK
             }
         }
     }

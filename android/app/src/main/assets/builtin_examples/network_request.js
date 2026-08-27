@@ -1,6 +1,8 @@
 // Example 4: Network Request
 // Fetches data from an API and displays it
 // Permissions: INTERNET
+UI.setTitle("Network Request");
+
 
 let usernameInput = new TextField("Enter GitHub username");
 UI.addView(usernameInput);

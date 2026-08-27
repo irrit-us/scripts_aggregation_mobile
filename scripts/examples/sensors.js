@@ -1,6 +1,8 @@
 // Example 5: Device Sensors
 // Demonstrates accelerometer and gyroscope access
 // Permissions: ACCELEROMETER, GYROSCOPE
+UI.setTitle("Sensors");
+
 
 let xLabel = new Label("X: 0.00");
 xLabel.setTextSize(18);

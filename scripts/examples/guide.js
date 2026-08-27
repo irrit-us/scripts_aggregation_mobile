@@ -2,6 +2,8 @@
 // Auto-installed and run on first launch; can also be reinstalled any time
 // from "+" -> "Built-in Examples". Renders this guide with the Markdown view.
 // Permissions: CONFIG (none strictly required)
+UI.setTitle("Guide");
+
 
 let md = new Markdown(
     "# Welcome to SAM\n" +

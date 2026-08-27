@@ -1,5 +1,6 @@
 package com.scripthost.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
@@ -366,18 +367,11 @@ class SettingsActivity : AppCompatActivity() {
                         }
                     }
                     "multiline" -> {
-                        val input = EditText(this).apply {
-                            setText(stored ?: field.default.orEmpty())
-                            minLines = 4
-                            gravity = android.view.Gravity.TOP
-                            isVerticalScrollBarEnabled = true
-                            inputType = InputType.TYPE_CLASS_TEXT or
-                                InputType.TYPE_TEXT_FLAG_MULTI_LINE
-                        }
-                        scriptConfigContainer.addView(input)
-                        // Multiline values keep their line breaks; only the
-                        // outer whitespace is trimmed
-                        readers += field.key to { input.text.toString().trim() }
+                        // Long values are NOT shown in full here: a compact
+                        // preview row opens the full-screen editor, and these
+                        // fields save exclusively through that editor (the
+                        // section Save button must not see them).
+                        scriptConfigContainer.addView(buildMultilinePreviewRow(field))
                     }
                     else -> {
                         val input = EditText(this).apply {
@@ -410,6 +404,53 @@ class SettingsActivity : AppCompatActivity() {
                 }
             })
         }
+    }
+
+    /**
+     * Compact preview row for a multiline field: first lines of the value
+     * (max 2, ellipsized, gray) plus an Edit affordance. Tapping opens the
+     * full-screen [ConfigValueEditorActivity]; the row re-renders with the
+     * saved value on return (sections reload in onResume).
+     */
+    private fun buildMultilinePreviewRow(
+        field: com.scripthost.config.ScriptConfigSchemas.Field
+    ): View {
+        val value = configStore.get(field.key) ?: field.default.orEmpty()
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, 4, 0, 8)
+            isClickable = true
+            setOnClickListener {
+                startActivity(
+                    Intent(this@SettingsActivity, ConfigValueEditorActivity::class.java)
+                        .putExtra(ConfigValueEditorActivity.EXTRA_FIELD_KEY, field.key)
+                        .putExtra(ConfigValueEditorActivity.EXTRA_FIELD_LABEL, field.label)
+                )
+            }
+        }
+
+        row.addView(TextView(this).apply {
+            text = value.ifEmpty { getString(R.string.empty_preview) }
+            textSize = 13f
+            setTextColor(android.graphics.Color.GRAY)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        })
+
+        row.addView(TextView(this).apply {
+            text = getString(R.string.edit_hint)
+            textSize = 13f
+            setPadding(16, 0, 0, 0)
+        })
+
+        return row
     }
 
     override fun onResume() {

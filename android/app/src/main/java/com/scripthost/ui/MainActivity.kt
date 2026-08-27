@@ -457,12 +457,29 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     }
 
     override fun onScriptSessionStarted(scriptName: String) {
-        headerScriptName.text = scriptName
+        headerScriptName.text = prettifyScriptTitle(scriptName)
         // Root page = content home: ☰ stays, ✕ only appears on pushed pages
         hamburgerButton.visibility = View.VISIBLE
         headerCloseButton.visibility = View.GONE
         headerIdleBlock.visibility = View.GONE
         headerScriptName.visibility = View.VISIBLE
+    }
+
+    override fun onScriptTitle(title: String) {
+        // A script-declared title wins over the prettified fallback
+        headerScriptName.text = title
+    }
+
+    /**
+     * Fallback display title when a script does not call UI.setTitle:
+     * "daily_fitness-report 2" -> "Daily Fitness Report 2".
+     */
+    private fun prettifyScriptTitle(raw: String): String {
+        return raw.split('_', '-', ' ')
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { part ->
+                part.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            }
     }
 
     override fun onScriptSessionEnded() {

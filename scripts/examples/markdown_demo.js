@@ -3,6 +3,8 @@
 // blockquotes, links, and horizontal rules rendered by the built-in
 // lightweight parser (no external dependencies).
 // Permissions: None
+UI.setTitle("Markdown Demo");
+
 
 // Root background
 UI.setBackgroundColor("#FAFAFA");

@@ -37,6 +37,7 @@ class IntegrationTester:
             ("SSH Bridge", self.test_ssh_bridge),
             ("Testing Framework", self.test_testing_framework),
             ("New Capability Examples", self.test_new_capability_examples),
+            ("Script Guidelines", self.test_script_guidelines),
         ]
 
         for test_name, test_func in tests:
@@ -457,7 +458,7 @@ class IntegrationTester:
 
         examples = [
             ("monitor_port_chart.js", ['new Chart']),
-            ("daily_fitness.js", ['Config.schema', 'FITNESS_PLAN_MD', 'fitness_state_']),
+            ("daily_fitness.js", ['Config.schema', 'FITNESS_PLAN', 'parseYamlPlan', 'fitness_state_']),
             ("stock_trends.js", ['Network.get', 'new Chart']),
             ("tmux_remote.js", ['SSH.connect', 'SSH.exec']),
             ("sub_screens.js", ['UI.pushPage', 'UI.popPage']),
@@ -475,6 +476,49 @@ class IntegrationTester:
                     return False
             print(f"  [OK] {filename}: {', '.join(patterns)}")
 
+        return True
+
+    def test_script_guidelines(self) -> bool:
+        """Enforce docs/SCRIPTING.md rules across all bundled examples"""
+        examples_dir = self.project_root / "scripts/examples"
+        files = sorted(examples_dir.glob("*.js"))
+        if not files:
+            print("  [FAIL] no examples found")
+            return False
+
+        violations = []
+        for example in files:
+            content = example.read_text(encoding="utf-8")
+            name = example.name
+
+            # Display title: every example sets one via UI.setTitle
+            if 'UI.setTitle(' not in content:
+                violations.append(f"{name}: missing UI.setTitle")
+
+            # Declared config: Config.get requires Config.schema in the same file
+            if 'Config.get(' in content and 'Config.schema(' not in content:
+                violations.append(f"{name}: Config.get without Config.schema")
+
+            # Recurring timers must be clearable
+            if 'setInterval(' in content and 'clearInterval(' not in content:
+                violations.append(f"{name}: setInterval without clearInterval")
+
+            # No theme-breaking hardcoded text colors (restore via "")
+            for bad in ('"#212121"', '"#000000"'):
+                if bad in content:
+                    violations.append(f"{name}: hardcoded text color {bad}")
+
+            # List content stays plaintext: markup only where it feeds the
+            # Markdown view (markdown_demo, guide), never in list/plain rows
+            if 'new Markdown(' not in content and ('**' in content or '`' in content):
+                violations.append(f"{name}: markdown markup in script content")
+
+        if violations:
+            for v in violations[:10]:
+                print(f"  [FAIL] {v}")
+            return False
+
+        print(f"  [OK] {len(files)} examples comply with the script guidelines")
         return True
 
     def print_summary(self):

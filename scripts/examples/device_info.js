@@ -2,6 +2,8 @@
 // Demonstrates the read-only Device APIs: system version, architecture,
 // time/timezone, device name, memory and storage usage
 // Permissions: CONFIG
+UI.setTitle("Device Info");
+
 
 let info = Device.getInfo();
 let sys = Device.getSystemInfo();
