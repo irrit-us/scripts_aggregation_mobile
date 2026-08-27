@@ -47,16 +47,16 @@ Import counter.js into ScriptHost and run it
 
 ### 3. Todo List (`todo_list.js`)
 
-**Description**: A functional todo list application
+**Description**: A compact checklist with an inline "+" add button, per-item
+"X" delete buttons, and a font size configurable in Settings
 
 **Concepts Demonstrated**:
-- Text input
-- ListView component
-- Array manipulation
-- Adding/removing items
-- Toast notifications
+- Horizontal rows with `setWeight` (input fills, button stays compact)
+- Per-item delete via row removal
+- Gray strikethrough on completion with theme-aware color restore
+- Script-declared config (`TODO_FONT_SIZE`, number) via `Config.schema`
 
-**Permissions Required**: None
+**Permissions Required**: CONFIG (only for the font-size setting)
 
 **Usage**:
 ```bash

@@ -671,6 +671,33 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         }
     }
 
+    /**
+     * `view.setWeight(w)` — LinearLayout weight: the view takes the remaining
+     * space along the parent's orientation (width 0 in horizontal layouts,
+     * height 0 in vertical ones), e.g. an input field beside a compact button.
+     */
+    @Suppress("unused")
+    fun setViewWeight(receiver: V8Object, weight: Double) {
+        val viewId = receiver.getInteger("_viewId")
+        onUiThread {
+            val view = viewRegistry[viewId] ?: return@onUiThread
+            val parent = view.parent as? LinearLayout ?: return@onUiThread
+            val lp = view.layoutParams as? LinearLayout.LayoutParams
+                ?: LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            lp.weight = weight.toFloat()
+            if (parent.orientation == LinearLayout.HORIZONTAL) {
+                lp.width = 0
+            } else {
+                lp.height = 0
+            }
+            view.layoutParams = lp
+            parent.requestLayout()
+        }
+    }
+
     @Suppress("unused")
     fun setViewAlpha(receiver: V8Object, alpha: Double) {
         val viewId = receiver.getInteger("_viewId")
@@ -1477,6 +1504,8 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
             arrayOf(V8Object::class.java, Int::class.java), true)
         jsObject.registerJavaMethod(this, "setViewHeight", "setHeight",
             arrayOf(V8Object::class.java, Int::class.java), true)
+        jsObject.registerJavaMethod(this, "setViewWeight", "setWeight",
+            arrayOf(V8Object::class.java, Double::class.java), true)
         jsObject.registerJavaMethod(this, "setViewAlpha", "setAlpha",
             arrayOf(V8Object::class.java, Double::class.java), true)
         jsObject.registerJavaMethod(this, "setViewBackgroundColor", "setBackgroundColor",
