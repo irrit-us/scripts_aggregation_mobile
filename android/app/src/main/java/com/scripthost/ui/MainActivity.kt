@@ -40,13 +40,15 @@ import java.io.File
  * beneath them; a compact icon row ("+" add script, gear settings) sits
  * directly below the list. Right content: ONE header bar (~72dp) above the
  * script runtime surface ([ScriptRuntimeFragment]) with a welcome state when
- * nothing is running. The bar has exactly one left button at all times — ☰
- * (opens the drawer) when idle, ✕ (close page/session) while a script runs —
- * and shows "SAM / script aggregation mobile" idle or the script name while
- * running. The drawer starts open on cold start (no animation) and dims the
- * content while open via the DrawerLayout scrim — tapping the dimmed content
- * closes the drawer. No system ActionBar is used (NoActionBar theme); the
- * system status bar is tinted to match the theme background.
+ * nothing is running. A running script's ROOT page is the content home — the
+ * bar's left button is ☰ (opens the drawer) at the root page and swaps to ✕
+ * on pushed script pages; leaving/stopping a script happens from the drawer.
+ * The title shows "SAM / script aggregation mobile" idle or the script name
+ * while running. The drawer starts open on cold start (no animation; honors
+ * the "open drawer on launch" app option) and dims the content while open
+ * via the DrawerLayout scrim — tapping the dimmed content closes the drawer.
+ * No system ActionBar is used (NoActionBar theme); the system status bar is
+ * tinted to match the theme background.
  */
 class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
@@ -54,14 +56,16 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     private var flingTracker: android.view.VelocityTracker? = null
 
     /**
-     * Rightward-fling-to-close for the embedded script runtime.
+     * Rightward-fling handling for the content area.
      *
      * The fling is detected here, at the activity level, because DrawerLayout's
      * drag handling can reroute a gesture mid-stream, so a container deep in
      * the fragment never reliably sees ACTION_UP (observed on device). The
      * fragment-level container in SubScreenChrome still serves the standalone
      * hosts. Gestures starting in the drawer edge zone are ignored so opening
-     * the drawer does not close a script page.
+     * the drawer does not pop a script page. With a script running, the
+     * fragment decides: pop a pushed page, or open the drawer at the root
+     * page; with no script running, a right fling opens the drawer.
      */
     override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
         val edgePx = 24 * resources.displayMetrics.density
@@ -87,7 +91,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
                         val handled =
                             (supportFragmentManager.findFragmentByTag(FRAGMENT_TAG)
                                 as? ScriptRuntimeFragment)?.let {
-                                it.closePageOrSession(); true
+                                it.onCloseGesture(); true
                             } ?: false
                         if (!handled) {
                             // Idle content: right fling opens the drawer. This
@@ -125,6 +129,9 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     private lateinit var scriptAdapter: ScriptAdapter
 
+    /** Id of the script currently running in the content area, if any. */
+    private var runningScriptId: String? = null
+
     /** SAF file picker for ".js" import (specific MIME types with wildcard fallback). */
     private val importLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -151,7 +158,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         loadScripts()
         onBackPressedDispatcher.addCallback(this, drawerBackCallback)
 
-        if (savedInstanceState == null) {
+        if (savedInstanceState == null && app.appSettings.openDrawerOnLaunch) {
             // Cold start: drawer starts open, without animation
             drawerLayout.openDrawer(drawerPanel, false)
         }
@@ -422,10 +429,10 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         return headerRow
     }
 
-    /** Forward a header ✕ tap to the running fragment (pop page / end session). */
+    /** Forward a header ✕ tap to the running fragment (pop a pushed page). */
     private fun requestRuntimeClose() {
         (supportFragmentManager.findFragmentByTag(FRAGMENT_TAG) as? ScriptRuntimeFragment)
-            ?.closePageOrSession()
+            ?.onCloseGesture()
     }
 
     private fun loadScripts() {
@@ -439,6 +446,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     private fun runScript(script: Script) {
         drawerLayout.closeDrawer(drawerPanel)
+        runningScriptId = script.id
         emptyStateView.visibility = View.GONE
         runtimeContainer.visibility = View.VISIBLE
         supportFragmentManager.beginTransaction()
@@ -448,13 +456,15 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     override fun onScriptSessionStarted(scriptName: String) {
         headerScriptName.text = scriptName
-        hamburgerButton.visibility = View.GONE
-        headerCloseButton.visibility = View.VISIBLE
+        // Root page = content home: ☰ stays, ✕ only appears on pushed pages
+        hamburgerButton.visibility = View.VISIBLE
+        headerCloseButton.visibility = View.GONE
         headerIdleBlock.visibility = View.GONE
         headerScriptName.visibility = View.VISIBLE
     }
 
     override fun onScriptSessionEnded() {
+        runningScriptId = null
         supportFragmentManager.findFragmentByTag(FRAGMENT_TAG)?.let { fragment ->
             supportFragmentManager.beginTransaction().remove(fragment).commit()
         }
@@ -464,6 +474,18 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         headerCloseButton.visibility = View.GONE
         headerIdleBlock.visibility = View.VISIBLE
         headerScriptName.visibility = View.GONE
+    }
+
+    override fun onScriptPageDepthChanged(depth: Int) {
+        // ☰ at the root page (depth 1), ✕ on pushed pages — same slot
+        val onSubPage = depth > 1
+        hamburgerButton.visibility = if (onSubPage) View.GONE else View.VISIBLE
+        headerCloseButton.visibility = if (onSubPage) View.VISIBLE else View.GONE
+    }
+
+    override fun openDrawer(): Boolean {
+        drawerLayout.openDrawer(drawerPanel)
+        return true
     }
 
     override fun closeDrawerIfOpen(): Boolean {
@@ -655,21 +677,44 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     // ------------------------------------------------------------------
 
     private fun showScriptDetails(script: Script) {
-        val options = arrayOf("Edit", "Export", "Delete")
+        // A running script can also be stopped from here (the other ways out
+        // are picking another script or the debug-mode Stop Script button)
+        val isRunning = script.id == runningScriptId
+        val options = if (isRunning) {
+            arrayOf(
+                getString(R.string.action_stop),
+                getString(R.string.action_edit),
+                getString(R.string.action_export),
+                getString(R.string.action_delete)
+            )
+        } else {
+            arrayOf(
+                getString(R.string.action_edit),
+                getString(R.string.action_export),
+                getString(R.string.action_delete)
+            )
+        }
 
         // NOTE: AlertDialog cannot show a message and an items list together —
         // the message hides the items, so details go into the title instead.
         AlertDialog.Builder(this)
             .setTitle("${script.name}  v${script.version}")
             .setItems(options) { _, which ->
-                when (which) {
-                    0 -> editScript(script)
-                    1 -> exportScript(script)
-                    2 -> deleteScript(script)
+                when (options[which]) {
+                    getString(R.string.action_stop) -> stopRunningScript()
+                    getString(R.string.action_edit) -> editScript(script)
+                    getString(R.string.action_export) -> exportScript(script)
+                    getString(R.string.action_delete) -> deleteScript(script)
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
+    }
+
+    /** Stop the script running in the content area, if any. */
+    private fun stopRunningScript() {
+        (supportFragmentManager.findFragmentByTag(FRAGMENT_TAG) as? ScriptRuntimeFragment)
+            ?.requestStop()
     }
 
     private fun editScript(script: Script) {

@@ -675,6 +675,44 @@ for (let i = 0; i < keys.length; i++) {
 }
 ```
 
+---
+
+### Config.schema(jsonString)
+
+Declare the script's own configurable fields. After the script has run once
+and declared its schema, the fields appear as a dedicated section at the
+bottom of Settings under the script's title. Values the user enters are read
+back with the existing `Config.get(key)` (global key namespace, unchanged).
+
+The argument is a JSON STRING (use `JSON.stringify`) holding an array of
+field objects:
+
+- `key` (string, required) - Config key read back via `Config.get`
+- `label` (string, optional) - Display label; defaults to `key`
+- `type` (string, required) - `"text"`, `"password"`, `"number"`,
+  `"boolean"`, or `"select"` (select requires a non-empty `options` array)
+- `options` (array of strings, select only)
+- `default` (string/number/boolean, optional)
+
+Fields with unknown types, missing keys, duplicate keys, or selects without
+options are skipped with a logged warning; valid fields are kept.
+Re-declaring replaces the previous schema; uninstalling the script drops it.
+
+**Returns:** Boolean success status (false without permission or on malformed JSON)
+
+**Permissions Required:** `CONFIG`
+
+**Example:**
+```javascript
+Config.schema(JSON.stringify([
+    { key: "OPENAI_API_KEY", label: "API Key", type: "password" },
+    { key: "AGENT_API_URL", label: "API Base URL", type: "text",
+      default: "https://api.openai.com/v1" },
+    { key: "AGENT_MODEL", label: "Model", type: "select",
+      options: ["gpt-4o-mini", "gpt-4o"], default: "gpt-4o-mini" }
+]));
+```
+
 > **Security note**: `CONFIG` is a non-dangerous permission that is auto-granted
 > to any installed script declaring it. Only install scripts you trust.
 

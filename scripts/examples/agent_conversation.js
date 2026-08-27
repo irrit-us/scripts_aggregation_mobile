@@ -4,15 +4,23 @@
 // system/error messages red). After each exchange a status line shows the
 // model, the HTTP outcome, and the elapsed time in milliseconds.
 //
-// Configuration is read from Settings via Config:
-//   OPENAI_API_KEY  - required; the chat shows a hint when it is missing
+// The script declares its configurable fields via Config.schema(); after
+// it has run once, they appear in Settings under the script's section:
+//   OPENAI_API_KEY  - required API key (password field)
 //   AGENT_API_URL   - optional base URL (default https://api.openai.com/v1)
-// A dedicated Agent section is planned for Settings; until then add these
-// keys by hand.
+//   AGENT_MODEL     - model select (default gpt-4o-mini)
 // Permissions: INTERNET, CONFIG.
 
+Config.schema(JSON.stringify([
+    { key: "OPENAI_API_KEY", label: "API Key", type: "password" },
+    { key: "AGENT_API_URL", label: "API Base URL", type: "text",
+      default: "https://api.openai.com/v1" },
+    { key: "AGENT_MODEL", label: "Model", type: "select",
+      options: ["gpt-4o-mini", "gpt-4o"], default: "gpt-4o-mini" }
+]));
+
 let DEFAULT_BASE_URL = "https://api.openai.com/v1";
-let MODEL = "gpt-4o-mini";
+let DEFAULT_MODEL = "gpt-4o-mini";
 let COLOR_USER = "#D1E7FF";
 let COLOR_AGENT = "#F1F1F1";
 let COLOR_SYSTEM = "#FFE0E0";
@@ -58,28 +66,34 @@ sendBtn.setOnTap(function() {
 });
 UI.addView(sendBtn);
 
-function addMessage(text, bgColor) {
+function addMessage(text, bgColor, alignRight) {
+    // Each message lives in a full-width row so the bubble hugs its side:
+    // agent/system on the left, the user's own messages on the right.
+    let row = new Layout("horizontal");
+    row.setGravity(alignRight ? "right" : "left");
     let bubble = new Label(text);
     bubble.setTextSize(14);
     bubble.setBackgroundColor(bgColor);
     bubble.setCornerRadius(8);
     bubble.setPadding(12, 8, 12, 8);
     bubble.setMargin(0, 4, 0, 4);
-    chatLayout.addView(bubble);
+    row.addView(bubble);
+    chatLayout.addView(row);
 }
 
 function sendMessage(userMessage) {
     let apiKey = Config.get("OPENAI_API_KEY");
     if (!apiKey) {
-        addMessage("OPENAI_API_KEY is not set. Add it in Settings, then try again.", COLOR_SYSTEM);
+        addMessage("OPENAI_API_KEY is not set. Add it in Settings, then try again.", COLOR_SYSTEM, false);
         statusLabel.setText("Missing OPENAI_API_KEY");
         console.error("Missing OPENAI_API_KEY configuration");
         return;
     }
 
     let baseUrl = Config.get("AGENT_API_URL") || DEFAULT_BASE_URL;
+    let model = Config.get("AGENT_MODEL") || DEFAULT_MODEL;
 
-    addMessage(userMessage, COLOR_USER);
+    addMessage(userMessage, COLOR_USER, true);
     messageInput.setValue("");
     statusLabel.setText("Waiting for agent...");
     let startedAt = Date.now();
@@ -91,7 +105,7 @@ function sendMessage(userMessage) {
     };
 
     let body = JSON.stringify({
-        model: MODEL,
+        model: model,
         messages: [{ role: "system", content: "You are a concise, helpful assistant." }].concat(history),
         max_tokens: 300
     });
@@ -99,8 +113,8 @@ function sendMessage(userMessage) {
     Network.post(baseUrl + "/chat/completions", headers, body, function(data, error) {
         let elapsed = Date.now() - startedAt;
         if (error) {
-            addMessage("Network error: " + error, COLOR_SYSTEM);
-            statusLabel.setText(MODEL + " | " + error + " | " + elapsed + " ms");
+            addMessage("Network error: " + error, COLOR_SYSTEM, false);
+            statusLabel.setText(model + " | " + error + " | " + elapsed + " ms");
             console.error("Agent request failed: " + error);
             return;
         }
@@ -108,12 +122,12 @@ function sendMessage(userMessage) {
             let result = JSON.parse(data);
             let reply = result.choices[0].message.content;
             history.push({ role: "assistant", content: reply });
-            addMessage(reply, COLOR_AGENT);
-            statusLabel.setText(MODEL + " | HTTP 2xx | " + elapsed + " ms");
+            addMessage(reply, COLOR_AGENT, false);
+            statusLabel.setText(model + " | HTTP 2xx | " + elapsed + " ms");
             console.log("Agent replied in " + elapsed + " ms");
         } catch (e) {
-            addMessage("Could not parse the agent response.", COLOR_SYSTEM);
-            statusLabel.setText(MODEL + " | parse error | " + elapsed + " ms");
+            addMessage("Could not parse the agent response.", COLOR_SYSTEM, false);
+            statusLabel.setText(model + " | parse error | " + elapsed + " ms");
             console.error("Agent response parse error: " + e);
         }
     });

@@ -7,6 +7,7 @@ import com.google.common.truth.Truth.assertThat
 import com.scripthost.TestApplication
 import com.scripthost.config.ConfigStore
 import com.scripthost.config.PlaintextCipher
+import com.scripthost.config.ScriptConfigSchemas
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
 import com.scripthost.security.PermissionManager
@@ -34,6 +35,7 @@ class ConfigBridgeTest {
 
     private lateinit var application: Application
     private lateinit var configStore: ConfigStore
+    private lateinit var schemas: ScriptConfigSchemas
     private lateinit var permissionManager: PermissionManager
     private lateinit var bridge: ConfigBridge
 
@@ -42,10 +44,11 @@ class ConfigBridgeTest {
         application = ApplicationProvider.getApplicationContext()
         configStore = ConfigStore(tempFolder.root, PlaintextCipher, ConsoleLogger())
         configStore.put("API_KEY", "secret-value")
+        schemas = ScriptConfigSchemas(tempFolder.root, ConsoleLogger())
         permissionManager = PermissionManager(application)
         grantConfigToScript(permissionManager, SCRIPT_ID)
         // No register() call: a live V8 runtime is unavailable on the JVM.
-        bridge = ConfigBridge(configStore, permissionManager, SCRIPT_ID)
+        bridge = ConfigBridge(configStore, schemas, permissionManager, SCRIPT_ID, SCRIPT_NAME)
     }
 
     @Test
@@ -60,9 +63,42 @@ class ConfigBridgeTest {
 
     @Test
     fun getConfig_withoutPermission_returnsNull() {
-        val unprivileged = ConfigBridge(configStore, PermissionManager(application), SCRIPT_ID)
+        val unprivileged = ConfigBridge(
+            configStore, schemas, PermissionManager(application), SCRIPT_ID, SCRIPT_NAME
+        )
 
         assertThat(unprivileged.getConfig("API_KEY")).isNull()
+    }
+
+    @Test
+    fun declareSchema_withPermission_persistsSchema() {
+        val json = """[ { "key": "API_KEY", "label": "API Key", "type": "password" } ]"""
+
+        assertThat(bridge.declareSchema(json)).isTrue()
+
+        val schema = schemas.get(SCRIPT_ID)
+        assertThat(schema).isNotNull()
+        assertThat(schema!!.name).isEqualTo(SCRIPT_NAME)
+        assertThat(schema.fields).containsExactly(
+            ScriptConfigSchemas.Field("API_KEY", "API Key", "password")
+        )
+    }
+
+    @Test
+    fun declareSchema_malformedJson_returnsFalseAndStoresNothing() {
+        assertThat(bridge.declareSchema("not json")).isFalse()
+        assertThat(schemas.get(SCRIPT_ID)).isNull()
+    }
+
+    @Test
+    fun declareSchema_withoutPermission_returnsFalseAndStoresNothing() {
+        val unprivileged = ConfigBridge(
+            configStore, schemas, PermissionManager(application), SCRIPT_ID, SCRIPT_NAME
+        )
+        val json = """[ { "key": "API_KEY", "type": "text" } ]"""
+
+        assertThat(unprivileged.declareSchema(json)).isFalse()
+        assertThat(schemas.get(SCRIPT_ID)).isNull()
     }
 
     // listKeys() is untested here: it builds a V8Array and therefore requires
@@ -86,5 +122,6 @@ class ConfigBridgeTest {
 
     private companion object {
         const val SCRIPT_ID = "config-test"
+        const val SCRIPT_NAME = "Config Test Script"
     }
 }

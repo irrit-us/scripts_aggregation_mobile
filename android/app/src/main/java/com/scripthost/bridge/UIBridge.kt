@@ -76,6 +76,13 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
     /** Stack of pages hosted by [rootView]; the bottom entry is the root page. */
     private val pageStack = java.util.ArrayDeque<LinearLayout>()
 
+    /**
+     * Optional listener notified with the new depth after [pushPage] /
+     * [popPage] change the page stack. Called on the engine thread; hosts
+     * that update UI must marshal to the main thread themselves.
+     */
+    var onPageDepthChanged: ((Int) -> Unit)? = null
+
     /** The page script UI currently lands in (top of the stack). */
     private val currentPage: LinearLayout?
         get() = pageStack.peek()
@@ -146,6 +153,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
         viewStyles.clear()
         textStates.clear()
         pageStack.clear()
+        onPageDepthChanged = null
         runtime = null
     }
 
@@ -1271,6 +1279,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
             rootView.addView(newPage)
         }
         pageStack.push(newPage)
+        onPageDepthChanged?.invoke(pageStack.size)
         return pageStack.size
     }
 
@@ -1297,6 +1306,7 @@ class UIBridge(private val context: Context, private val rootView: ViewGroup) : 
             viewStyles.remove(id)
             textStates.remove(id)
         }
+        onPageDepthChanged?.invoke(pageStack.size)
         return true
     }
 

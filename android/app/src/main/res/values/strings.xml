@@ -47,17 +47,20 @@
     <string name="script_installed_toast">Script installed: %1$s</string>
     <string name="exported_toast">Exported: %1$s</string>
     <string name="export_failed">Export failed: %1$s</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_export">Export</string>
+    <string name="action_delete">Delete</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_app_section">App</string>
-    <string name="agent_section">Agent</string>
-    <string name="agent_api_base_url">API Base URL</string>
-    <string name="agent_api_key">API Key</string>
-    <string name="agent_default_base_url">https://api.openai.com/v1</string>
-    <string name="agent_saved">Agent settings saved</string>
     <string name="debug_mode_label">Debug mode (mirror script console to Logcat)</string>
     <string name="appearance_label">Appearance</string>
+    <string name="script_timeout_label">Script timeout (seconds)</string>
+    <string name="keep_screen_on_label">Keep screen on while running</string>
+    <string name="open_drawer_on_launch_label">Open drawer on launch</string>
+    <string name="script_config_saved">%1$s settings saved</string>
     <string name="theme_follow_system">Follow system</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

@@ -6,6 +6,7 @@ import com.scripthost.config.AesGcmValueCipher
 import com.scripthost.config.AppSettings
 import com.scripthost.config.ConfigStore
 import com.scripthost.config.KeystoreKeyProvider
+import com.scripthost.config.ScriptConfigSchemas
 import com.scripthost.engine.ScriptManager
 import com.scripthost.security.PermissionManager
 
@@ -23,6 +24,9 @@ class ScriptHostApplication : Application() {
     lateinit var configStore: ConfigStore
         private set
 
+    lateinit var scriptConfigSchemas: ScriptConfigSchemas
+        private set
+
     lateinit var appSettings: AppSettings
         private set
 
@@ -34,6 +38,7 @@ class ScriptHostApplication : Application() {
         scriptManager = ScriptManager(this)
         permissionManager = PermissionManager(this)
         configStore = ConfigStore(filesDir, AesGcmValueCipher(KeystoreKeyProvider().getOrCreateKey()))
+        scriptConfigSchemas = ScriptConfigSchemas(filesDir)
         appSettings = AppSettings(this)
 
         // Apply persisted light/dark preference before any activity starts

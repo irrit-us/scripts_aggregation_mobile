@@ -1,6 +1,7 @@
 package com.scripthost.engine
 
 import android.content.Context
+import com.scripthost.config.ScriptConfigSchemas
 import com.scripthost.models.InstallResult
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
@@ -177,13 +178,14 @@ class ScriptManager(
     }
 
     /**
-     * Uninstall a script.
+     * Uninstall a script. Also drops its declared config schema, if any.
      */
     suspend fun uninstallScript(scriptId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             installedScripts.remove(scriptId)
             File(scriptsDir, "$scriptId.js").delete()
             saveMetadata()
+            ScriptConfigSchemas(storageDir, logger).removeScript(scriptId)
             true
         } catch (e: Exception) {
             false

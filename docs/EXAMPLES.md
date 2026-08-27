@@ -137,8 +137,9 @@ messages gray, system/error messages red). After each exchange a status
 line shows the model, the HTTP outcome, and the elapsed time.
 
 **Concepts Demonstrated**:
-- Configuration interface (`Config.get`): `OPENAI_API_KEY` (required) and
-  `AGENT_API_URL` (optional base URL, default `https://api.openai.com/v1`)
+- Script-provided config fields (`Config.schema`): `OPENAI_API_KEY`
+  (required), `AGENT_API_URL` (optional base URL), `AGENT_MODEL` (select) —
+  after the first run they appear in Settings under the script's section
 - Custom API calls with `Authorization` headers (`Network.post` with headers)
 - Chat-style UI: ScrollView + colored message labels
 - Per-exchange interaction info (model, HTTP status/error, elapsed ms)
@@ -149,7 +150,8 @@ line shows the model, the HTTP outcome, and the elapsed time.
 
 **Usage**:
 ```bash
-1. Open Settings and add OPENAI_API_KEY (optionally AGENT_API_URL)
+1. Run once, then open Settings and fill the Agent Chat section
+   (at minimum OPENAI_API_KEY)
 2. Import agent_conversation.js into ScriptHost
 3. Enter a message and tap "Send"
 4. The agent's reply appears as a new message bubble with a status line
@@ -161,10 +163,13 @@ line shows the model, the HTTP outcome, and the elapsed time.
 
 **Description**: Polls a server health endpoint and shows live UP/DOWN status.
 Uses `setInterval` for polling and optional bearer-token authentication.
+Declares its configurable fields via `Config.schema` (URL, API key, poll
+interval), so they appear in Settings under the script's section after the
+first run.
 
 **Concepts Demonstrated**:
-- Configuration interface (`Config.get`)
-- Polling with `setInterval` / `clearInterval`
+- Script-provided config fields (`Config.schema`) read back with `Config.get`
+- Polling with `setInterval` / `clearInterval` at a configurable interval
 - Custom API calls with optional auth headers (`Network.get` with headers)
 - Request de-duplication (skips overlapping polls)
 - Status rendering and error handling
@@ -173,9 +178,10 @@ Uses `setInterval` for polling and optional bearer-token authentication.
 
 **Usage**:
 ```bash
-1. Open Settings and add MONITOR_URL (optionally MONITOR_API_KEY)
+1. Run once, then open Settings and fill the Server Monitor section
+   (MONITOR_URL, optionally MONITOR_API_KEY / MONITOR_INTERVAL_SEC)
 2. Import server_monitor.js into ScriptHost
-3. Tap "Start Monitoring" to begin polling every 5 seconds
+3. Tap "Start Monitoring" to begin polling
 4. Tap "Stop Monitoring" to pause
 ```
 

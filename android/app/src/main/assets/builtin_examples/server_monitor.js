@@ -1,7 +1,18 @@
 // Example 8: Server Monitoring
 // Polls a server health endpoint and shows live UP/DOWN status.
-// Configure MONITOR_URL (and optionally MONITOR_API_KEY) in Settings.
+// The script declares its configurable fields via Config.schema(); after
+// it has run once, they appear in Settings under the script's section:
+//   MONITOR_URL           - health endpoint URL (required)
+//   MONITOR_API_KEY       - optional Bearer token (password field)
+//   MONITOR_INTERVAL_SEC  - poll interval in seconds (default 5)
 // Permissions: INTERNET, CONFIG
+
+Config.schema(JSON.stringify([
+    { key: "MONITOR_URL", label: "Monitor URL", type: "text" },
+    { key: "MONITOR_API_KEY", label: "API Key", type: "password" },
+    { key: "MONITOR_INTERVAL_SEC", label: "Interval (seconds)", type: "number",
+      default: "5" }
+]));
 
 let title = new Label("Server Monitor");
 title.setTextSize(24);
@@ -39,6 +50,14 @@ let monitorTimer = null;
 let pollIntervalMs = 5000;
 let requestInFlight = false;
 
+function readIntervalMs() {
+    let seconds = parseInt(Config.get("MONITOR_INTERVAL_SEC") || "5", 10);
+    if (isNaN(seconds) || seconds < 1) {
+        seconds = 5;
+    }
+    return seconds * 1000;
+}
+
 function startMonitoring() {
     if (monitorTimer !== null) {
         showToast("Already monitoring");
@@ -51,6 +70,7 @@ function startMonitoring() {
         console.error("Missing MONITOR_URL configuration");
         return;
     }
+    pollIntervalMs = readIntervalMs();
     statusLabel.setText("Monitoring...");
     pollOnce(url);
     monitorTimer = setInterval(function() {

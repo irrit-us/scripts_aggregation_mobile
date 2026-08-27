@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Script-provided configuration: `Config.schema(jsonString)` lets a script
+  declare its own config fields (text/password/number/boolean/select with
+  optional defaults); schemas persist to `script_config_schemas.json`, are
+  rendered in Settings under the script's section, and are dropped on
+  uninstall. `agent_conversation.js` and `server_monitor.js` declare theirs
+- App-level script execution timeout setting (`AppSettings.engineTimeoutSeconds`,
+  default 30) used by the engine watchdog instead of the hardcoded 30s
+- New App-section options: script timeout (seconds, numeric input),
+  keep screen on while running (applies `FLAG_KEEP_SCREEN_ON` during a
+  session), and open drawer on launch (default on) — all persisted in
+  `AppSettings`
 - First-launch onboarding: the bundled `guide.js` is quietly installed and
   run on the very first app start, rendering a Markdown walkthrough of the
   drawer, gestures, settings, and script APIs (19th bundled example)
@@ -15,10 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   18 examples bundled in `assets/builtin_examples/` (synced copies of
   `scripts/examples/`); selecting one installs it immediately. Installing
   `agent_conversation.js` also toasts a hint to configure the API keys
-- Settings "Agent" section (between App and the generic config keys):
-  labeled "API Base URL" (prefilled with the stored value or
-  `https://api.openai.com/v1`) and masked "API Key" inputs with a Save
-  button, persisted to ConfigStore under `AGENT_API_URL` / `OPENAI_API_KEY`
 - `setStrikeThrough(enabled)` text method on all text-capable components
   (Button, Label, Switch, CheckBox, TextField)
 - New example `metronome.js` (BPM slider, accented beats via vibration);
@@ -57,6 +64,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `md.setMarkdown(text)`; no external dependencies
 
 ### Changed
+- A running script's ROOT page is now the content home, not a closable
+  sub-screen: at the root page the header's left button is ☰ (opens the
+  drawer), and ✕/right-fling/Back only pop pushed script pages; leaving or
+  stopping a script happens from the drawer (long-press the running script
+  for a new "Stop" entry) or the debug-mode Stop Script button. Header
+  button swaps are driven by a page-depth callback on `UIBridge`
+  (`onPageDepthChanged`)
+- Settings reworked: the hand-managed generic config-keys section and the
+  hardcoded Agent section were removed; script configuration now comes
+  entirely from script-declared schemas (`Config.schema`), rendered as
+  per-script sections at the bottom of the screen with a Save button each
 - All app UI text is now English; user-facing strings in the main screens
   were moved to `strings.xml`
 - Main header bar is taller (~72dp) with exactly one left button at a time:

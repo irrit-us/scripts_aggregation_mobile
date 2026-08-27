@@ -1,10 +1,9 @@
 package com.scripthost.ui
 
 import android.os.Bundle
+import android.text.InputType
 import android.view.View
-import android.view.ViewGroup
 import android.widget.*
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import com.scripthost.R
@@ -13,27 +12,25 @@ import com.scripthost.ScriptHostApplication
 /**
  * Settings Activity - full-screen sub-screen for app configuration.
  *
- * Sections:
- *  1. App: debug-mode toggle (script console mirrored to Logcat) and
- *     light/dark appearance — app-only preferences persisted in
+ * Sections (top to bottom):
+ *  1. App: debug mode, appearance, script timeout, keep screen on, open
+ *     drawer on launch — app-only preferences persisted in
  *     [com.scripthost.config.AppSettings] (SharedPreferences).
- *  2. Agent: API base URL + key for the bundled agent_conversation example,
- *     persisted to ConfigStore under AGENT_API_URL / OPENAI_API_KEY.
- *  3. App-level config keys (API keys etc.) backed by [com.scripthost.config.ConfigStore],
- *     values masked in the list. Scripts with the CONFIG permission read them
- *     through the `Config` bridge (e.g. `Config.get("OPENAI_API_KEY")`).
- *  4. Installed scripts: declared permissions plus granted permissions with
+ *  2. Installed scripts: declared permissions plus granted permissions with
  *     per-permission revoke.
+ *  3. Script config sections (bottom): for every installed script that
+ *     declared a config schema via `Config.schema(...)` (see
+ *     [com.scripthost.config.ScriptConfigSchemas]), one labeled control per
+ *     field with a per-section Save button persisting to
+ *     [com.scripthost.config.ConfigStore] under the field keys.
  *
  * Chrome follows the sub-screen spec: a top-left X closes the screen, and a
  * rightward swipe anywhere on it does the same.
  */
 class SettingsActivity : AppCompatActivity() {
 
-    private lateinit var configListContainer: LinearLayout
     private lateinit var scriptsContainer: LinearLayout
-    private lateinit var emptyText: TextView
-    private lateinit var configAdapter: ConfigAdapter
+    private lateinit var scriptConfigContainer: LinearLayout
 
     private val app get() = application as ScriptHostApplication
     private val configStore get() = app.configStore
@@ -41,17 +38,11 @@ class SettingsActivity : AppCompatActivity() {
     private val permissionManager get() = app.permissionManager
     private val appSettings get() = app.appSettings
 
-    companion object {
-        /** ConfigStore keys read by the bundled agent_conversation example. */
-        private const val CONFIG_KEY_AGENT_API_URL = "AGENT_API_URL"
-        private const val CONFIG_KEY_OPENAI_API_KEY = "OPENAI_API_KEY"
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupUI()
-        loadConfig()
         loadScriptPermissions()
+        loadScriptConfigSections()
     }
 
     private fun setupUI() {
@@ -81,36 +72,7 @@ class SettingsActivity : AppCompatActivity() {
         // ---- App-level preferences ----
         setupAppSection(rootLayout)
 
-        // ---- Agent API configuration ----
-        setupAgentSection(rootLayout)
-
-        rootLayout.addView(TextView(this).apply {
-            text = "Configure API keys and settings. Scripts with the CONFIG " +
-                "permission can read these values, so only install trusted scripts."
-            textSize = 13f
-            setTextColor(android.graphics.Color.GRAY)
-            setPadding(0, 0, 0, 16)
-        })
-
-        emptyText = TextView(this).apply {
-            text = "No keys configured. Tap \"Add Key\" to get started."
-            textSize = 14f
-            setTextColor(android.graphics.Color.GRAY)
-            setPadding(16, 24, 16, 24)
-        }
-        rootLayout.addView(emptyText)
-
-        configListContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        rootLayout.addView(configListContainer)
-
-        rootLayout.addView(Button(this).apply {
-            text = "Add Key"
-            setOnClickListener { showEditDialog(null) }
-        })
-
-        // Per-installed-script permissions section
+        // ---- Per-installed-script permissions ----
         rootLayout.addView(TextView(this).apply {
             text = getString(R.string.installed_scripts_section)
             textSize = 18f
@@ -123,6 +85,12 @@ class SettingsActivity : AppCompatActivity() {
         }
         rootLayout.addView(scriptsContainer)
 
+        // ---- Script-provided config sections (bottom) ----
+        scriptConfigContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        rootLayout.addView(scriptConfigContainer)
+
         scrollView.addView(rootLayout)
         swipeContainer.addView(scrollView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -131,7 +99,7 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(swipeContainer)
     }
 
-    /** "App" section: debug-mode toggle and light/dark appearance. */
+    /** "App" section: app-level preferences, applied immediately. */
     private fun setupAppSection(rootLayout: LinearLayout) {
         rootLayout.addView(TextView(this).apply {
             text = getString(R.string.settings_app_section)
@@ -160,7 +128,7 @@ class SettingsActivity : AppCompatActivity() {
         val appearanceRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            setPadding(0, 8, 0, 16)
+            setPadding(0, 8, 0, 8)
         }
         appearanceRow.addView(TextView(this).apply {
             text = getString(R.string.appearance_label)
@@ -201,80 +169,59 @@ class SettingsActivity : AppCompatActivity() {
         }
         appearanceRow.addView(modeSpinner)
         rootLayout.addView(appearanceRow)
-    }
 
-    /**
-     * "Agent" section: API configuration for the bundled agent_conversation
-     * example, persisted to ConfigStore under the exact keys the script reads
-     * (`AGENT_API_URL`, `OPENAI_API_KEY`).
-     */
-    private fun setupAgentSection(rootLayout: LinearLayout) {
-        rootLayout.addView(TextView(this).apply {
-            text = getString(R.string.agent_section)
-            textSize = 18f
-            setTypeface(null, android.graphics.Typeface.BOLD)
+        // Script timeout (seconds): persisted as soon as a valid number is typed
+        val timeoutRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
             setPadding(0, 8, 0, 8)
-        })
-
-        rootLayout.addView(TextView(this).apply {
-            text = getString(R.string.agent_api_base_url)
-            textSize = 15f
-        })
-        val urlInput = EditText(this).apply {
-            setText(configStore.get(CONFIG_KEY_AGENT_API_URL)
-                ?: getString(R.string.agent_default_base_url))
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_VARIATION_URI
-            setSingleLine()
         }
-        rootLayout.addView(urlInput)
-
-        rootLayout.addView(TextView(this).apply {
-            text = getString(R.string.agent_api_key)
+        timeoutRow.addView(TextView(this).apply {
+            text = getString(R.string.script_timeout_label)
             textSize = 15f
-            setPadding(0, 8, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
         })
-        val keyInput = EditText(this).apply {
-            setText(configStore.get(CONFIG_KEY_OPENAI_API_KEY) ?: "")
-            // Masked input: the key is a secret
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        timeoutRow.addView(EditText(this).apply {
+            setText(appSettings.engineTimeoutSeconds.toString())
+            inputType = InputType.TYPE_CLASS_NUMBER
             setSingleLine()
-        }
-        rootLayout.addView(keyInput)
-
-        rootLayout.addView(Button(this).apply {
-            text = getString(R.string.save)
-            setOnClickListener {
-                val url = urlInput.text.toString().trim()
-                if (url.isNotEmpty()) {
-                    configStore.put(CONFIG_KEY_AGENT_API_URL, url)
+            setEms(4)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val seconds = s?.toString()?.trim()?.toIntOrNull() ?: return
+                    if (seconds >= 1) {
+                        appSettings.engineTimeoutSeconds = seconds
+                    }
                 }
-                configStore.put(CONFIG_KEY_OPENAI_API_KEY, keyInput.text.toString().trim())
-                Toast.makeText(
-                    this@SettingsActivity,
-                    getString(R.string.agent_saved),
-                    Toast.LENGTH_SHORT
-                ).show()
-                // Refresh the generic key list so the new entries show up
-                loadConfig()
+            })
+        })
+        rootLayout.addView(timeoutRow)
+
+        // Keep screen on while a script is running
+        rootLayout.addView(Switch(this).apply {
+            text = getString(R.string.keep_screen_on_label)
+            textSize = 15f
+            isChecked = appSettings.keepScreenOn
+            setOnCheckedChangeListener { _, isChecked ->
+                appSettings.keepScreenOn = isChecked
             }
         })
-    }
 
-    private fun loadConfig() {
-        val entries = configStore.all().entries.sortedBy { it.key }
-
-        emptyText.visibility = if (entries.isEmpty()) View.VISIBLE else View.GONE
-
-        configAdapter = ConfigAdapter(this, entries)
-        configListContainer.removeAllViews()
-        for (i in 0 until configAdapter.count) {
-            val row = configAdapter.getView(i, null, configListContainer)
-            val key = configAdapter.getItem(i)
-            row.setOnClickListener { showEditDialog(key) }
-            configListContainer.addView(row)
-        }
+        // Open the script-list drawer automatically on launch
+        rootLayout.addView(Switch(this).apply {
+            text = getString(R.string.open_drawer_on_launch_label)
+            textSize = 15f
+            isChecked = appSettings.openDrawerOnLaunch
+            setOnCheckedChangeListener { _, isChecked ->
+                appSettings.openDrawerOnLaunch = isChecked
+            }
+        })
     }
 
     /** List installed scripts with declared permissions and revocable grants. */
@@ -362,95 +309,98 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun showEditDialog(key: String?) {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 16, 24, 0)
-        }
+    /**
+     * Render one config section per installed script that declared a schema
+     * via `Config.schema(...)`. Values live in ConfigStore under the field
+     * keys (global namespace); keys not present in the schema are untouched.
+     */
+    private fun loadScriptConfigSections() {
+        scriptConfigContainer.removeAllViews()
 
-        val keyInput = EditText(this).apply {
-            hint = "Key (e.g. OPENAI_API_KEY)"
-            setText(key ?: "")
-            // The key is the identity of an entry; rename via delete + re-add.
-            isEnabled = key == null
-        }
-        val valueInput = EditText(this).apply {
-            hint = "Value (e.g. sk-...) or leave empty"
-            setText(key?.let { configStore.get(it).orEmpty() } ?: "")
-        }
-        layout.addView(keyInput)
-        layout.addView(valueInput)
+        val installedIds = scriptManager.getAllScripts().map { it.id }.toSet()
+        app.scriptConfigSchemas.all().forEach { (scriptId, schema) ->
+            if (scriptId !in installedIds || schema.fields.isEmpty()) return@forEach
 
-        AlertDialog.Builder(this)
-            .setTitle(if (key == null) "Add Key" else "Edit Key")
-            .setView(layout)
-            .setPositiveButton("Save") { _, _ ->
-                val entryKey = key ?: keyInput.text.toString().trim()
-                val entryValue = valueInput.text.toString()
-                if (entryKey.isEmpty()) {
-                    Toast.makeText(this, "Key cannot be empty", Toast.LENGTH_SHORT).show()
-                } else {
-                    configStore.put(entryKey, entryValue)
-                    loadConfig()
+            scriptConfigContainer.addView(TextView(this).apply {
+                text = schema.name
+                textSize = 18f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setPadding(0, 32, 0, 8)
+            })
+
+            // Field key -> read current control value
+            val readers = mutableListOf<Pair<String, () -> String>>()
+
+            schema.fields.forEach { field ->
+                scriptConfigContainer.addView(TextView(this).apply {
+                    text = field.label
+                    textSize = 15f
+                    setPadding(0, 8, 0, 0)
+                })
+
+                val stored = configStore.get(field.key)
+                when (field.type) {
+                    "boolean" -> {
+                        val toggle = Switch(this).apply {
+                            isChecked = (stored ?: field.default).toBoolean()
+                        }
+                        scriptConfigContainer.addView(toggle)
+                        readers += field.key to { toggle.isChecked.toString() }
+                    }
+                    "select" -> {
+                        val options = field.options.orEmpty()
+                        val spinner = Spinner(this).apply {
+                            adapter = ArrayAdapter(
+                                this@SettingsActivity,
+                                android.R.layout.simple_spinner_item,
+                                options
+                            ).apply {
+                                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                            }
+                        }
+                        val selected = options.indexOf(stored ?: field.default)
+                        spinner.setSelection(selected.coerceAtLeast(0))
+                        scriptConfigContainer.addView(spinner)
+                        readers += field.key to {
+                            options.getOrElse(spinner.selectedItemPosition) { options.first() }
+                        }
+                    }
+                    else -> {
+                        val input = EditText(this).apply {
+                            setText(stored ?: field.default.orEmpty())
+                            setSingleLine()
+                            inputType = when (field.type) {
+                                "password" -> InputType.TYPE_CLASS_TEXT or
+                                    InputType.TYPE_TEXT_VARIATION_PASSWORD
+                                "number" -> InputType.TYPE_CLASS_NUMBER or
+                                    InputType.TYPE_NUMBER_FLAG_DECIMAL or
+                                    InputType.TYPE_NUMBER_FLAG_SIGNED
+                                else -> InputType.TYPE_CLASS_TEXT
+                            }
+                        }
+                        scriptConfigContainer.addView(input)
+                        readers += field.key to { input.text.toString().trim() }
+                    }
                 }
             }
-            .setNeutralButton("Delete") { _, _ ->
-                if (key != null) {
-                    configStore.remove(key)
-                    loadConfig()
+
+            scriptConfigContainer.addView(Button(this).apply {
+                text = getString(R.string.save)
+                setOnClickListener {
+                    readers.forEach { (key, read) -> configStore.put(key, read()) }
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        getString(R.string.script_config_saved, schema.name),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+            })
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        loadConfig()
         loadScriptPermissions()
-    }
-}
-
-/**
- * Adapter for config entries. Values are masked in the list so secrets are
- * not shown on screen; the full value is visible while editing.
- */
-class ConfigAdapter(
-    private val context: SettingsActivity,
-    private val entries: List<Map.Entry<String, String>>
-) : BaseAdapter() {
-
-    override fun getCount(): Int = entries.size
-
-    override fun getItem(position: Int): String = entries[position].key
-
-    override fun getItemId(position: Int): Long = position.toLong()
-
-    override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
-        val entry = entries[position]
-
-        val layout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
-        }
-
-        layout.addView(TextView(context).apply {
-            text = entry.key
-            textSize = 16f
-            setTypeface(null, android.graphics.Typeface.BOLD)
-        })
-
-        layout.addView(TextView(context).apply {
-            text = maskValue(entry.value)
-            textSize = 13f
-            setTextColor(android.graphics.Color.GRAY)
-        })
-
-        return layout
-    }
-
-    private fun maskValue(value: String): String {
-        if (value.isEmpty()) return "(empty)"
-        return if (value.length <= 6) "••••••" else value.take(4) + "••••••"
+        loadScriptConfigSections()
     }
 }

@@ -39,8 +39,9 @@ class ScriptRuntimeActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
             orientation = LinearLayout.VERTICAL
         }
 
-        // Single slim header: ✕ closes the current page (popPage), or the
-        // session at the root page (same as MainActivity's running header)
+        // Single slim header: ✕ pops a pushed page; at the root page the
+        // fragment defers to the host, and this standalone host ends the
+        // session (there is no drawer to open here)
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -75,7 +76,7 @@ class ScriptRuntimeActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     /** Forward a header ✕ tap to the fragment (pop page / end session). */
     private fun requestRuntimeClose() {
         (supportFragmentManager.findFragmentByTag(FRAGMENT_TAG) as? ScriptRuntimeFragment)
-            ?.closePageOrSession()
+            ?.onCloseGesture()
     }
 
     override fun onScriptSessionStarted(scriptName: String) {

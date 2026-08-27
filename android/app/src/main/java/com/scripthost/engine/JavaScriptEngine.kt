@@ -66,8 +66,10 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     private lateinit var runtime: V8
     private val released = AtomicBoolean(false)
 
-    // Resource limits
-    private val maxExecutionTimeMs = 30_000L // 30 seconds
+    // Resource limits: execution watchdog timeout from app settings
+    // (Settings -> app section; default 30 seconds)
+    private val maxExecutionTimeMs =
+        AppSettings(context).engineTimeoutSeconds.coerceAtLeast(1) * 1000L
 
     // Active script contexts
     private val activeContexts = ConcurrentHashMap<String, ScriptContext>()

@@ -1,6 +1,7 @@
 package com.scripthost.engine
 
 import com.google.common.truth.Truth.assertThat
+import com.scripthost.config.ScriptConfigSchemas
 import com.scripthost.models.InstallResult
 import com.scripthost.models.Permission
 import com.scripthost.models.Script
@@ -162,6 +163,21 @@ class ScriptManagerTest {
         assertThat(removed).isTrue()
         assertThat(scriptManager.getScript("testauthor.hello_world")).isNull()
         assertThat(File(tempFolder.root, "scripts/testauthor.hello_world.js").exists()).isFalse()
+    }
+
+    @Test
+    fun uninstallScript_dropsDeclaredConfigSchema() = runBlocking {
+        installUnsigned()
+        val schemas = ScriptConfigSchemas(tempFolder.root, ConsoleLogger())
+        schemas.put(
+            "testauthor.hello_world", "Hello World",
+            listOf(ScriptConfigSchemas.Field("KEY", "Key", "text"))
+        )
+
+        assertThat(scriptManager.uninstallScript("testauthor.hello_world")).isTrue()
+
+        val reloaded = ScriptConfigSchemas(tempFolder.root, ConsoleLogger())
+        assertThat(reloaded.get("testauthor.hello_world")).isNull()
     }
 
     @Test

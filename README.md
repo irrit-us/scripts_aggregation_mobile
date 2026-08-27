@@ -39,7 +39,7 @@ A powerful mobile script host environment that enables users to write and instal
 - **Secure Sandbox**: Isolated script execution with permission management
 - **Script Management**: Install, update, and manage scripts locally
 - **Discord-Style Drawer UI**: Left drawer holds the script list; scripts run in the content area beside it under one slim in-app header (☰ + title, no system ActionBar)
-- **Configuration Interface**: Manage API keys and settings from the Settings screen, plus app-level options (debug mode, light/dark appearance)
+- **Configuration Interface**: App-level options in Settings (debug mode, appearance, script timeout, keep screen on, drawer auto-open), plus per-script config sections rendered from script-declared schemas (`Config.schema`)
 - **Custom API Calls**: HTTP GET/POST with custom headers for authenticated APIs
 - **Wrapped Agent Conversations**: Example agent-chat script for OpenAI-compatible endpoints
 - **Server Monitoring**: Example script that polls and displays server health status
@@ -150,9 +150,11 @@ UI.addView(list);
 
 ## Configuration
 
-API keys and other settings are managed from the **Settings** screen
-(opened from the button at the bottom of the drawer). Entries are stored as key/value pairs in the
-app's private storage and are readable by scripts that declare the `CONFIG`
+Script configuration is managed from the **Settings** screen
+(opened from the gear icon below the drawer script list). Scripts declare
+their configurable fields via `Config.schema(...)`; Settings renders a
+section per script and persists values as key/value pairs in the app's
+private storage, readable by scripts that declare the `CONFIG`
 permission:
 
 ```javascript
@@ -162,7 +164,7 @@ let apiKey = Config.get("OPENAI_API_KEY");
 
 Example uses:
 
-- `OPENAI_API_KEY` / `OPENAI_API_BASE` - wrapped agent conversations
+- `AGENT_API_URL` / `OPENAI_API_KEY` - wrapped agent conversations
   (`scripts/examples/agent_conversation.js`)
 - `MONITOR_URL` / `MONITOR_API_KEY` / `MONITOR_THRESHOLD` - server monitoring
   and rolling port chart (`scripts/examples/server_monitor.js`,

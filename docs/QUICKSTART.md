@@ -62,9 +62,13 @@ UI.addView(button);
 3. Grant permissions if requested
 4. Tap the button to see the alert!
 
-While a script runs, the top bar shows ✕ next to the script's name. To stop a
-running script, tap "Stop Script" (or that ✕ at the top-left) and the
-content area returns to the empty state.
+While a script runs, the top bar shows the script's name. The button at
+the bar's left is ☰ on the script's main page — tap it (or fling right, or
+press Back) to open the drawer, which is how you leave a script. On pages the
+script pushes (`UI.pushPage`), the button becomes ✕ and pops the page
+instead. To stop a running script, long-press it in the drawer list and
+choose "Stop", or simply run another script; with debug mode on there is
+also a "Stop Script" button below the console.
 
 ## Try Examples
 
@@ -134,9 +138,13 @@ console.log(content); // "Hello World"
 
 ### Configure API Keys
 
-Add keys in the app: open **Settings** (the gear icon below the drawer script list), tap **Add Key**, and
-enter a name and value (for example `OPENAI_API_KEY`). Scripts read them via
-the `Config` bridge:
+Open **Settings** (the gear icon below the drawer script list). Scripts
+that declare configurable fields via `Config.schema(...)` — for example the
+Agent Conversation script, which needs `AGENT_API_URL` and `OPENAI_API_KEY` —
+get their own section at the bottom of the screen; fill it in and tap Save.
+The App section above holds app-level options: debug mode, appearance,
+script timeout, keep screen on, and open drawer on launch. Scripts read
+stored values via the `Config` bridge:
 
 ```javascript
 let apiKey = Config.get("OPENAI_API_KEY");
@@ -151,6 +159,12 @@ if (!apiKey) {
         });
 }
 ```
+
+Scripts can also declare their own config fields with `Config.schema(...)`
+(see the API reference). After a script has run once and declared its schema,
+its fields appear as a dedicated section at the bottom of Settings under the
+script's title — agent-style scripts (API URL, key, model) are configured
+there rather than in any hardcoded Settings section.
 
 ### Create a List
 
