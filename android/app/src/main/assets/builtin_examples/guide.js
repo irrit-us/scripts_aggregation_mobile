@@ -13,8 +13,9 @@ let md = new Markdown(
     "\n" +
     "## Get around\n" +
     "- **Swipe right** or tap **the top-left button** to open the script drawer\n" +
-    "- Tap a script in the drawer to run it on the right\n" +
-    "- While a script runs, the top-left button becomes **X**: tap it (or fling right) to close a page, then to stop the script\n" +
+    "- Tap a script in the drawer to run it on the right - it replaces this page\n" +
+    "- Inside a script's pushed pages the top-left button becomes **X**: tap it (or fling right) to pop back\n" +
+    "- To leave a running script, open the drawer - the script keeps running in the background\n" +
     "\n" +
     "## Add scripts\n" +
     "1. Tap **+** at the bottom of the drawer\n" +
