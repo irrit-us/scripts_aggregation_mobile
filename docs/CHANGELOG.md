@@ -22,11 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file scheme, `text/markdown` or `text/plain`) offers SAM's new
   `MarkdownViewerActivity`, which renders the file with the built-in
   MarkdownRenderer in a sub-screen (X / rightward swipe to close)
-- Settings "应用" section: debug-mode toggle (script `console.*` messages
+- Settings "App" section: debug-mode toggle (script `console.*` messages
   mirrored to Logcat tag `ScriptConsole` when on) and light/dark appearance
-  (跟随系统 / 浅色 / 深色) via `AppCompatDelegate`; both persisted in the new
-  `AppSettings` (SharedPreferences `app_settings`, keys `debug_mode` /
+  (Follow system / Light / Dark) via `AppCompatDelegate`; both persisted in
+  the new `AppSettings` (SharedPreferences `app_settings`, keys `debug_mode` /
   `night_mode`), separate from the script-readable `ConfigStore`
+- Fira Sans (SIL OFL 1.1) bundled as the app's default typeface
+  (`res/font/fira_sans*.ttf` + `res/font/fira_sans.xml` family, applied via
+  the app theme; license text in `assets/OFL-FiraSans.txt`)
 - "script aggregation mobile" subtitle under the SAM title in the main
   header and the drawer header
 - `Markdown` script view: lightweight built-in Markdown renderer (headings,
@@ -35,6 +38,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `md.setMarkdown(text)`; no external dependencies
 
 ### Changed
+- All app UI text is now English; user-facing strings in the main screens
+  were moved to `strings.xml`
+- Main header bar is taller (~72dp) with exactly one left button at a time:
+  ☰ when idle, ✕ at the same spot while a script runs; glyphs unchanged.
+  Idle content shows a "Welcome" / "Click Script on left to focus" state
+- Drawer bottom text buttons replaced by a compact icon row ("+" add script,
+  gear settings) directly below the script list; the drawer header stays
+  fixed while the list scrolls
+- Script runtime: the console section and Stop Script button are only
+  visible in debug mode; the script page host is wrapped in a ScrollView so
+  long script content scrolls
+- System status bar now matches the theme background with light/dark icon
+  contrast via `WindowInsetsControllerCompat` (follows the theme switch)
+- Example scripts: `todo_list.js` tasks are per-item CheckBoxes (tap to mark
+  done), `daily_fitness.js` gained a "Done today" CheckBox, and
+  `scheduled_notify.js` makes the system-notification nature of `Notify.post`
+  explicit in its message text
 - Cleartext HTTP is now permitted (`android:usesCleartextTraffic="true"`)
   because scripts commonly target local-network devices that only serve
   plain HTTP; scripts should still prefer HTTPS for internet hosts

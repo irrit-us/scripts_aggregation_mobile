@@ -28,6 +28,16 @@ statusLabel.setTextSize(13);
 statusLabel.setTextColor("#888888");
 UI.addView(statusLabel);
 
+// "Done today" checkbox: track whether today's task is completed
+let doneCheck = new CheckBox("Done today");
+doneCheck.setOnChange(function(checked) {
+    if (checked) {
+        showToast("Nice work - task done for today!");
+    }
+    console.log("Fitness task done today: " + checked);
+});
+UI.addView(doneCheck);
+
 let enableBtn = new Button("Enable daily 8:00 reminder");
 enableBtn.setBackgroundColor("#34C759");
 enableBtn.setTextColor("#FFFFFF");

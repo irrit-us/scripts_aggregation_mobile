@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App default typeface: Fira Sans (SIL Open Font License 1.1).
+  License text: android/app/src/main/assets/OFL-FiraSans.txt
+-->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="400"
+        android:font="@font/fira_sans_regular" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="700"
+        android:font="@font/fira_sans_bold" />
+</font-family>

@@ -11,6 +11,10 @@
         <item name="colorOnError">#FFFFFF</item>
         <item name="colorSurface">#FFFFFF</item>
         <item name="colorOnSurface">#000000</item>
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <!-- Default UI typeface: Fira Sans (OFL 1.1, see assets/OFL-FiraSans.txt) -->
+        <item name="android:fontFamily">@font/fira_sans</item>
+        <!-- Status bar matches the content background (also set at runtime
+             in MainActivity to keep icon contrast in sync with night mode) -->
+        <item name="android:statusBarColor">?android:attr/colorBackground</item>
     </style>
 </resources>

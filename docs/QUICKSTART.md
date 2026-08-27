@@ -32,8 +32,8 @@ Click the Run button (▶) or press `Shift+F10`.
 ### Create a Script
 
 1. Launch the SAM app — the left drawer (script list) opens automatically
-2. Tap "添加脚本" at the bottom of the drawer
-3. Select "创建新脚本"
+2. Tap the "+" icon below the script list in the drawer
+3. Select "Create New Script"
 4. Fill in details:
    - Name: "My First Script"
    - Version: "1.0.0"
@@ -88,7 +88,7 @@ SAM includes 17 example scripts covering every exposed API:
 16. **Scheduled Notifications** - One-shot and daily scheduled alerts
 17. **Device Info** - Read-only system/device information
 
-To try an example, use 添加脚本 → 从文件导入 and pick a file from
+To try an example, use "+" → "Import from File" and pick a file from
 `scripts/examples/`, then run it from the drawer list.
 
 ## Common Tasks
@@ -127,7 +127,7 @@ console.log(content); // "Hello World"
 
 ### Configure API Keys
 
-Add keys in the app: open **设置** from the bottom of the drawer, tap **Add Key**, and
+Add keys in the app: open **Settings** (the gear icon below the drawer script list), tap **Add Key**, and
 enter a name and value (for example `OPENAI_API_KEY`). Scripts read them via
 the `Config` bridge:
 

@@ -150,7 +150,7 @@ UI.addView(list);
 
 ## Configuration
 
-API keys and other settings are managed from the **设置** (Settings) screen
+API keys and other settings are managed from the **Settings** screen
 (opened from the button at the bottom of the drawer). Entries are stored as key/value pairs in the
 app's private storage and are readable by scripts that declare the `CONFIG`
 permission:

@@ -7,13 +7,14 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import com.scripthost.R
 import com.scripthost.ScriptHostApplication
 
 /**
  * Settings Activity - full-screen sub-screen for app configuration.
  *
  * Sections:
- *  1. 应用 (app): debug-mode toggle (script console mirrored to Logcat) and
+ *  1. App: debug-mode toggle (script console mirrored to Logcat) and
  *     light/dark appearance — app-only preferences persisted in
  *     [com.scripthost.config.AppSettings] (SharedPreferences).
  *  2. App-level config keys (API keys etc.) backed by [com.scripthost.config.ConfigStore],
@@ -64,12 +65,12 @@ class SettingsActivity : AppCompatActivity() {
         }
         headerRow.addView(SubScreenChrome.closeButton(this) { finish() })
         headerRow.addView(TextView(this).apply {
-            text = "设置"
+            text = getString(R.string.settings_title)
             textSize = 24f
         })
         rootLayout.addView(headerRow)
 
-        // ---- 应用 (app-level preferences) ----
+        // ---- App-level preferences ----
         setupAppSection(rootLayout)
 
         rootLayout.addView(TextView(this).apply {
@@ -100,7 +101,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Per-installed-script permissions section
         rootLayout.addView(TextView(this).apply {
-            text = "已安装脚本"
+            text = getString(R.string.installed_scripts_section)
             textSize = 18f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(0, 32, 0, 8)
@@ -119,10 +120,10 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(swipeContainer)
     }
 
-    /** "应用" section: debug-mode toggle and light/dark appearance. */
+    /** "App" section: debug-mode toggle and light/dark appearance. */
     private fun setupAppSection(rootLayout: LinearLayout) {
         rootLayout.addView(TextView(this).apply {
-            text = "应用"
+            text = getString(R.string.settings_app_section)
             textSize = 18f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(0, 8, 0, 8)
@@ -130,7 +131,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Debug mode: mirror script console.* messages to Logcat
         rootLayout.addView(Switch(this).apply {
-            text = "调试模式（脚本 console 输出到 Logcat）"
+            text = getString(R.string.debug_mode_label)
             textSize = 15f
             isChecked = appSettings.debugMode
             setOnCheckedChangeListener { _, isChecked ->
@@ -138,11 +139,11 @@ class SettingsActivity : AppCompatActivity() {
             }
         })
 
-        // Appearance: 跟随系统 / 浅色 / 深色
+        // Appearance: follow system / light / dark
         val modes = listOf(
-            "跟随系统" to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
-            "浅色" to AppCompatDelegate.MODE_NIGHT_NO,
-            "深色" to AppCompatDelegate.MODE_NIGHT_YES
+            getString(R.string.theme_follow_system) to AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+            getString(R.string.theme_light) to AppCompatDelegate.MODE_NIGHT_NO,
+            getString(R.string.theme_dark) to AppCompatDelegate.MODE_NIGHT_YES
         )
 
         val appearanceRow = LinearLayout(this).apply {
@@ -151,7 +152,7 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(0, 8, 0, 16)
         }
         appearanceRow.addView(TextView(this).apply {
-            text = "外观"
+            text = getString(R.string.appearance_label)
             textSize = 15f
             setPadding(0, 0, 16, 0)
         })
@@ -213,7 +214,7 @@ class SettingsActivity : AppCompatActivity() {
         val scripts = scriptManager.getAllScripts()
         if (scripts.isEmpty()) {
             scriptsContainer.addView(TextView(this).apply {
-                text = "未安装脚本"
+                text = getString(R.string.no_scripts_installed)
                 textSize = 14f
                 setTextColor(android.graphics.Color.GRAY)
                 setPadding(16, 16, 16, 16)
@@ -239,7 +240,10 @@ class SettingsActivity : AppCompatActivity() {
             })
             card.addView(TextView(this).apply {
                 val declared = script.permissions.joinToString { it.name }
-                text = "声明权限: ${declared.ifEmpty { "无" }}"
+                text = getString(
+                    R.string.declared_permissions,
+                    declared.ifEmpty { getString(R.string.none_value) }
+                )
                 textSize = 13f
                 setPadding(0, 8, 0, 0)
             })
@@ -247,7 +251,7 @@ class SettingsActivity : AppCompatActivity() {
             val granted = permissionManager.getGrantedPermissions(script.id)
             if (granted.isEmpty()) {
                 card.addView(TextView(this).apply {
-                    text = "已授予: 无"
+                    text = getString(R.string.granted_none)
                     textSize = 13f
                     setTextColor(android.graphics.Color.GRAY)
                     setPadding(0, 4, 0, 0)
@@ -269,12 +273,12 @@ class SettingsActivity : AppCompatActivity() {
                         )
                     })
                     row.addView(Button(this).apply {
-                        text = "撤销"
+                        text = getString(R.string.revoke)
                         setOnClickListener {
                             permissionManager.revokePermission(script.id, permission)
                             Toast.makeText(
                                 this@SettingsActivity,
-                                "已撤销 ${script.name} 的 ${permission.name} 权限",
+                                getString(R.string.permission_revoked, script.name, permission.name),
                                 Toast.LENGTH_SHORT
                             ).show()
                             loadScriptPermissions()

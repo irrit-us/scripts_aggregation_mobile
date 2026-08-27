@@ -4,8 +4,10 @@
 // daily recurring reminders with Scheduler.scheduleDaily, and
 // Scheduler.cancel. WorkManager timing is inexact (minute-scale).
 
-// Immediate notification
-Notify.post("SAM", "Scheduled notifications demo started");
+// Immediate notification (a real system notification in the status bar /
+// notification drawer - not an in-app toast or dialog)
+Notify.post("SAM system notification",
+    "This came from Notify.post - check the system notification drawer.");
 
 // One-shot: fires about one minute from now
 let oneShot = Scheduler.scheduleIn("demo-oneshot", 60000, "One-shot",

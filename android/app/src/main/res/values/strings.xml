@@ -27,4 +27,41 @@
     <string name="drawer_close">Close script list</string>
     <string name="stop_script">Stop Script</string>
     <string name="console_output">Console Output</string>
+
+    <!-- Main screen -->
+    <string name="app_subtitle">script aggregation mobile</string>
+    <string name="drawer_scripts_label">Scripts</string>
+    <string name="cd_add_script">Add script</string>
+    <string name="cd_settings">Settings</string>
+    <string name="welcome_title">Welcome</string>
+    <string name="welcome_subtitle">Click Script on left to focus</string>
+    <string name="add_script_dialog_title">Add Script</string>
+    <string name="create_new_script">Create New Script</string>
+    <string name="import_from_file">Import from File</string>
+    <string name="import_unsupported">Only .js scripts or .json script packages can be imported: %1$s</string>
+    <string name="import_read_failed">Could not read the selected file</string>
+    <string name="import_failed">Import failed: %1$s</string>
+    <string name="script_installed_toast">Script installed: %1$s</string>
+    <string name="exported_toast">Exported: %1$s</string>
+    <string name="export_failed">Export failed: %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_app_section">App</string>
+    <string name="debug_mode_label">Debug mode (mirror script console to Logcat)</string>
+    <string name="appearance_label">Appearance</string>
+    <string name="theme_follow_system">Follow system</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="installed_scripts_section">Installed Scripts</string>
+    <string name="no_scripts_installed">No scripts installed</string>
+    <string name="declared_permissions">Declared permissions: %1$s</string>
+    <string name="granted_none">Granted: none</string>
+    <string name="none_value">none</string>
+    <string name="revoke">Revoke</string>
+    <string name="permission_revoked">Revoked %2$s for %1$s</string>
+
+    <!-- Script runtime -->
+    <string name="script_source_missing">Script source file is missing: %1$s</string>
+    <string name="console_label">Console:</string>
 </resources>

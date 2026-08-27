@@ -80,7 +80,7 @@ class JavaScriptEngine(private val context: Context) : ScriptEngine {
     private val activeTimers = ConcurrentHashMap<Int, Runnable>()
     private val activeTimerCallbacks = ConcurrentHashMap<Int, V8Object>()
 
-    // Debug mode (Settings -> 应用 -> 调试模式): when enabled, script console
+    // Debug mode (Settings -> App -> Debug mode): when enabled, script console
     // messages are mirrored to Logcat. Read once at engine setup; toggling it
     // applies to the next script run.
     private val debugConsole = AppSettings(context).debugMode

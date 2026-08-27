@@ -1,5 +1,6 @@
 // Example 3: Todo List
-// A simple todo list with add and remove functionality
+// A simple todo list with add, complete, and clear functionality.
+// Each task is a CheckBox: tapping it marks the task done ("[x]" prefix).
 
 let todos = [];
 
@@ -19,33 +20,41 @@ addBtn.setTextColor("#FFFFFF");
 addBtn.setOnTap(function() {
     let task = input.getValue();
     if (task && task.trim() !== "") {
-        todos.push(task);
-        updateList();
+        addTodo(task.trim());
         input.setValue("");
         showToast("Task added!");
     }
 });
 UI.addView(addBtn);
 
-// Todo list
-let todoList = new ListView();
-todoList.setOnItemTap(function(index) {
-    showAlert("Task", todos[index]);
-});
-UI.addView(todoList);
+// Todo list: one CheckBox row per task
+let listLayout = new Layout("vertical");
+listLayout.setWidth(-1);
+UI.addView(listLayout);
+
+function addTodo(text) {
+    let item = { text: text, done: false };
+    let check = new CheckBox(text);
+    check.setOnChange(function(checked) {
+        item.done = checked;
+        check.setText((checked ? "[x] " : "") + item.text);
+        console.log((checked ? "Done: " : "Reopened: ") + item.text);
+    });
+    item.checkBox = check;
+    listLayout.addView(check);
+    todos.push(item);
+    console.log("Todo list updated. Total tasks: " + todos.length);
+}
 
 // Clear button
 let clearBtn = new Button("Clear All");
 clearBtn.setBackgroundColor("#F44336");
 clearBtn.setTextColor("#FFFFFF");
 clearBtn.setOnTap(function() {
+    for (let i = 0; i < todos.length; i++) {
+        listLayout.removeView(todos[i].checkBox);
+    }
     todos = [];
-    updateList();
     showToast("All tasks cleared");
 });
 UI.addView(clearBtn);
-
-function updateList() {
-    todoList.setItems(todos);
-    console.log("Todo list updated. Total tasks: " + todos.length);
-}

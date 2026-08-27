@@ -35,16 +35,18 @@ import java.io.File
 /**
  * Main Activity - Discord-style drawer layout.
  *
- * Left drawer (~280dp): "SAM" header (with "script aggregation mobile"
- * subtitle), a "脚本列表" section label, the installed script list, and
- * bottom-pinned "添加脚本" / "设置" buttons. Right content: ONE slim header
- * bar ([☰] + title) above the script runtime surface
- * ([ScriptRuntimeFragment]) with an empty/welcome state when nothing is
- * running. The header title shows "SAM / script aggregation mobile" when
- * idle and "✕ + script name" while a script runs (same bar, no stacking).
- * The drawer starts open on cold start (no animation) and dims the content
- * while open via the DrawerLayout scrim — tapping the dimmed content closes
- * the drawer. No system ActionBar is used (NoActionBar theme).
+ * Left drawer (~280dp): fixed "SAM" header (with "script aggregation mobile"
+ * subtitle) and a "Scripts" section label; the installed script list scrolls
+ * beneath them; a compact icon row ("+" add script, gear settings) sits
+ * directly below the list. Right content: ONE header bar (~72dp) above the
+ * script runtime surface ([ScriptRuntimeFragment]) with a welcome state when
+ * nothing is running. The bar has exactly one left button at all times — ☰
+ * (opens the drawer) when idle, ✕ (close page/session) while a script runs —
+ * and shows "SAM / script aggregation mobile" idle or the script name while
+ * running. The drawer starts open on cold start (no animation) and dims the
+ * content while open via the DrawerLayout scrim — tapping the dimmed content
+ * closes the drawer. No system ActionBar is used (NoActionBar theme); the
+ * system status bar is tinted to match the theme background.
  */
 class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
@@ -109,12 +111,13 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var drawerPanel: LinearLayout
     private lateinit var scriptListView: ListView
-    private lateinit var emptyStateView: TextView
+    private lateinit var emptyStateView: View
     private lateinit var runtimeContainer: FrameLayout
 
-    /** Header title blocks: exactly one is visible at a time. */
+    /** Header bar slots: the left button and the title swap as a pair. */
+    private lateinit var hamburgerButton: View
+    private lateinit var headerCloseButton: View
     private lateinit var headerIdleBlock: View
-    private lateinit var headerRunningBlock: View
     private lateinit var headerScriptName: TextView
 
     private val app get() = application as ScriptHostApplication
@@ -143,6 +146,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyStatusBarStyle()
         setupUI()
         loadScripts()
         onBackPressedDispatcher.addCallback(this, drawerBackCallback)
@@ -153,6 +157,23 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         }
 
         handleViewIntent(intent)
+    }
+
+    /**
+     * Tint the system status bar to the theme background and pick light/dark
+     * status-bar icons for contrast, following the current night mode. The
+     * activity recreates on theme changes, so this stays in sync.
+     */
+    private fun applyStatusBarStyle() {
+        val background = TypedValue()
+        theme.resolveAttribute(android.R.attr.colorBackground, background, true)
+        window.statusBarColor = background.data
+
+        val nightMode = resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        val isLightBackground = nightMode != android.content.res.Configuration.UI_MODE_NIGHT_YES
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
+            .isAppearanceLightStatusBars = isLightBackground
     }
 
     private fun setupUI() {
@@ -170,11 +191,23 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
         val contentFrame = FrameLayout(this)
 
-        emptyStateView = TextView(this).apply {
-            text = "从左侧列表选择一个脚本开始运行"
-            textSize = 16f
+        emptyStateView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(32, 32, 32, 32)
+            addView(TextView(context).apply {
+                text = getString(R.string.welcome_title)
+                textSize = 30f
+                setTypeface(null, Typeface.BOLD)
+                gravity = Gravity.CENTER
+            })
+            addView(TextView(context).apply {
+                text = getString(R.string.welcome_subtitle)
+                textSize = 14f
+                setTextColor(Color.GRAY)
+                gravity = Gravity.CENTER
+                setPadding(0, 8, 0, 0)
+            })
         }
         contentFrame.addView(emptyStateView, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -211,7 +244,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         theme.resolveAttribute(android.R.attr.colorBackground, background, true)
         drawerPanel.setBackgroundColor(background.data)
 
-        // 1. App title header + subtitle
+        // 1. App title header + subtitle (fixed; the list scrolls beneath it)
         drawerPanel.addView(TextView(this).apply {
             text = "SAM"
             textSize = 28f
@@ -219,7 +252,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
             setPadding(8, 8, 8, 0)
         })
         drawerPanel.addView(TextView(this).apply {
-            text = "script aggregation mobile"
+            text = getString(R.string.app_subtitle)
             textSize = 12f
             setTextColor(Color.GRAY)
             setPadding(8, 0, 8, 16)
@@ -227,36 +260,45 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
         // 2. Section label
         drawerPanel.addView(TextView(this).apply {
-            text = "脚本列表"
+            text = getString(R.string.drawer_scripts_label)
             textSize = 13f
             setTextColor(Color.GRAY)
             setPadding(8, 8, 8, 8)
         })
 
-        // 3. Script list
+        // 3. Script list (scrolls independently under the fixed header)
         scriptListView = ListView(this)
+
+        // 4. Compact icon row appended right after the last script entry:
+        // "+" add, gear settings. Added as a list footer so it follows the
+        // items instead of pinning to the panel bottom.
+        val iconRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        iconRow.addView(TextView(this).apply {
+            text = "+"
+            textSize = 26f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(24, 12, 24, 12)
+            contentDescription = getString(R.string.cd_add_script)
+            setOnClickListener { showAddScriptDialog() }
+        })
+        iconRow.addView(TextView(this).apply {
+            text = "⚙"
+            textSize = 22f
+            setPadding(24, 12, 24, 12)
+            contentDescription = getString(R.string.cd_settings)
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+            }
+        })
+        scriptListView.addFooterView(iconRow, null, false)
+
         drawerPanel.addView(scriptListView, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             0,
             1f
-        ))
-
-        // 4. Bottom-pinned controls
-        drawerPanel.addView(Button(this).apply {
-            text = "添加脚本"
-            setOnClickListener { showAddScriptDialog() }
-        }, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ))
-        drawerPanel.addView(Button(this).apply {
-            text = "设置"
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-            }
-        }, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
         ))
 
         val drawerWidth = (280 * resources.displayMetrics.density).toInt()
@@ -283,26 +325,41 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     }
 
     /**
-     * The single slim header bar: ☰ opens the drawer (edge swipe also works,
-     * DrawerLayout default); the title area swaps between the idle
-     * "SAM / script aggregation mobile" block and the running
-     * "✕ + script name" block.
+     * The single header bar (~72dp): exactly one left button at all times —
+     * ☰ (opens the drawer; edge swipe also works, DrawerLayout default) when
+     * idle, ✕ (close page/session) while a script runs. The title swaps
+     * between the idle "SAM / script aggregation mobile" block and the
+     * running script's name. Glyphs keep their size; extra height is padding.
      */
     private fun buildHeaderRow(): View {
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(4, 0, 8, 0)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                (HEADER_HEIGHT_DP * resources.displayMetrics.density).toInt()
+            )
         }
 
-        headerRow.addView(TextView(this).apply {
+        // Left button slot: ☰ and ✕ share the same spot, never both visible
+        val leftSlot = FrameLayout(this)
+        hamburgerButton = TextView(this).apply {
             text = "☰"
             textSize = 22f
             setPadding(20, 12, 20, 12)
             contentDescription = getString(R.string.drawer_open)
             setOnClickListener { drawerLayout.openDrawer(drawerPanel) }
-        })
+        }
+        headerCloseButton = SubScreenChrome.closeButton(this) { requestRuntimeClose() }.apply {
+            visibility = View.GONE
+        }
+        leftSlot.addView(hamburgerButton)
+        leftSlot.addView(headerCloseButton)
+        headerRow.addView(leftSlot)
 
+        // Title slot: idle block and script name share the same spot
+        val titleSlot = FrameLayout(this)
         headerIdleBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(8, 8, 8, 8)
@@ -312,25 +369,25 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
                 setTypeface(null, Typeface.BOLD)
             })
             addView(TextView(context).apply {
-                text = "script aggregation mobile"
+                text = getString(R.string.app_subtitle)
                 textSize = 11f
                 setTextColor(Color.GRAY)
             })
         }
-        headerRow.addView(headerIdleBlock)
-
-        headerRunningBlock = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        headerScriptName = TextView(this).apply {
+            textSize = 16f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(8, 8, 8, 8)
             visibility = View.GONE
-            addView(SubScreenChrome.closeButton(context) { requestRuntimeClose() })
-            headerScriptName = TextView(context).apply {
-                textSize = 16f
-                setTypeface(null, Typeface.BOLD)
-            }
-            addView(headerScriptName)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER_VERTICAL
+            )
         }
-        headerRow.addView(headerRunningBlock)
+        titleSlot.addView(headerIdleBlock)
+        titleSlot.addView(headerScriptName)
+        headerRow.addView(titleSlot)
 
         return headerRow
     }
@@ -361,8 +418,10 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     override fun onScriptSessionStarted(scriptName: String) {
         headerScriptName.text = scriptName
+        hamburgerButton.visibility = View.GONE
+        headerCloseButton.visibility = View.VISIBLE
         headerIdleBlock.visibility = View.GONE
-        headerRunningBlock.visibility = View.VISIBLE
+        headerScriptName.visibility = View.VISIBLE
     }
 
     override fun onScriptSessionEnded() {
@@ -371,8 +430,10 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         }
         runtimeContainer.visibility = View.GONE
         emptyStateView.visibility = View.VISIBLE
+        hamburgerButton.visibility = View.VISIBLE
+        headerCloseButton.visibility = View.GONE
         headerIdleBlock.visibility = View.VISIBLE
-        headerRunningBlock.visibility = View.GONE
+        headerScriptName.visibility = View.GONE
     }
 
     override fun closeDrawerIfOpen(): Boolean {
@@ -398,10 +459,13 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     // ------------------------------------------------------------------
 
     private fun showAddScriptDialog() {
-        val options = arrayOf("创建新脚本", "从文件导入")
+        val options = arrayOf(
+            getString(R.string.create_new_script),
+            getString(R.string.import_from_file)
+        )
 
         AlertDialog.Builder(this)
-            .setTitle("添加脚本")
+            .setTitle(getString(R.string.add_script_dialog_title))
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> startActivity(Intent(this, ScriptEditorActivity::class.java))
@@ -441,18 +505,20 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
                     val lowerName = displayName.lowercase()
                     if (!lowerName.endsWith(".js") && !lowerName.endsWith(".json")) {
                         return@withContext InstallResult.Failure(
-                            "仅支持导入 .js 脚本或 .json 脚本包: $displayName"
+                            getString(R.string.import_unsupported, displayName)
                         )
                     }
                     val importsDir = File(filesDir, "imports").apply { mkdirs() }
                     val dest = File(importsDir, File(displayName).name)
                     contentResolver.openInputStream(uri)?.use { input ->
                         dest.outputStream().use { output -> input.copyTo(output) }
-                    } ?: return@withContext InstallResult.Failure("无法读取所选文件")
+                    } ?: return@withContext InstallResult.Failure(
+                        getString(R.string.import_read_failed)
+                    )
 
                     scriptManager.installScriptFromFile(dest, verifySignature = false)
                 } catch (e: Exception) {
-                    InstallResult.Failure("导入失败: ${e.message}")
+                    InstallResult.Failure(getString(R.string.import_failed, e.message ?: ""))
                 }
             }
 
@@ -460,7 +526,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
                 is InstallResult.Success -> {
                     Toast.makeText(
                         this@MainActivity,
-                        "脚本已安装: ${result.script.name}",
+                        getString(R.string.script_installed_toast, result.script.name),
                         Toast.LENGTH_SHORT
                     ).show()
                     loadScripts()
@@ -518,9 +584,9 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
             val dir = File(getExternalFilesDir(null), "exports").apply { mkdirs() }
             val out = File(dir, "${script.id}.js")
             out.writeText(script.sourceCode)
-            Toast.makeText(this, "已导出: ${out.absolutePath}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.exported_toast, out.absolutePath), Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.export_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -546,6 +612,9 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 
     companion object {
         private const val FRAGMENT_TAG = "script_runtime"
+
+        /** Header bar height (~1.8x the original slim bar). */
+        private const val HEADER_HEIGHT_DP = 72
     }
 }
 

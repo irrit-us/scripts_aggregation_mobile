@@ -15,12 +15,14 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.scripthost.R
 import com.scripthost.ScriptHostApplication
 import com.scripthost.bridge.ConfigBridge
 import com.scripthost.bridge.NotificationBridge
 import com.scripthost.bridge.SSHBridge
 import com.scripthost.bridge.SystemBridge
 import com.scripthost.bridge.UIBridge
+import com.scripthost.config.AppSettings
 import com.scripthost.engine.ExecutionResult
 import com.scripthost.engine.JavaScriptEngine
 import com.scripthost.models.ScriptContext
@@ -109,24 +111,41 @@ class ScriptRuntimeFragment : Fragment() {
         // NOTE: no header here — the host activity owns the single slim
         // header bar (✕ + script name while running), so bars never stack.
 
-        // Page host for script UI (UIBridge stacks pages inside it)
-        scriptContainer = FrameLayout(context).apply {
+        // Page host for script UI (UIBridge stacks pages inside it), wrapped
+        // in a ScrollView so long script content scrolls. fillViewport keeps
+        // short content filling the screen; the bridge's page model is
+        // untouched — pages still live directly in scriptContainer.
+        scriptContainer = FrameLayout(context)
+        scriptContainer.setPadding(16, 16, 16, 16)
+        val pageScroll = ScrollView(context).apply {
+            isFillViewport = true
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             )
-            setPadding(16, 16, 16, 16)
         }
-        rootLayout.addView(scriptContainer)
+        pageScroll.addView(scriptContainer, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ))
+        rootLayout.addView(pageScroll)
+
+        // Debug chrome (console + stop button) is only visible in debug mode;
+        // sessions can still be ended via the header ✕ or a right fling.
+        val debugMode = AppSettings(context).debugMode
+        val debugChrome = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = if (debugMode) View.VISIBLE else View.GONE
+        }
 
         // Console output
         val consoleLabel = TextView(context).apply {
-            text = "Console:"
+            text = context.getString(R.string.console_label)
             setPadding(16, 8, 16, 8)
             setBackgroundColor(Color.LTGRAY)
         }
-        rootLayout.addView(consoleLabel)
+        debugChrome.addView(consoleLabel)
 
         val consoleScroll = ScrollView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -141,17 +160,19 @@ class ScriptRuntimeFragment : Fragment() {
             setPadding(16, 8, 16, 8)
         }
         consoleScroll.addView(consoleOutput)
-        rootLayout.addView(consoleScroll)
+        debugChrome.addView(consoleScroll)
 
         // Stop button
         stopButton = Button(context).apply {
-            text = "Stop Script"
+            text = context.getString(R.string.stop_script)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-        rootLayout.addView(stopButton)
+        debugChrome.addView(stopButton)
+
+        rootLayout.addView(debugChrome)
 
         stopButton.setOnClickListener {
             stopScript()
@@ -185,7 +206,11 @@ class ScriptRuntimeFragment : Fragment() {
         if (script.sourceCode.isBlank()) {
             // Metadata entry exists but the source file is missing/empty —
             // running it would silently "succeed" doing nothing.
-            Toast.makeText(requireContext(), "脚本源文件缺失: ${script.name}", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.script_source_missing, script.name),
+                Toast.LENGTH_LONG
+            ).show()
             endSession()
             return
         }
