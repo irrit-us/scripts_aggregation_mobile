@@ -28,7 +28,9 @@ Import hello_world.js into ScriptHost and run it
 
 ### 2. Counter App (`counter.js`)
 
-**Description**: A counter with increment, decrement, and reset buttons
+**Description**: A counter with increment and decrement controls: one
+compact row with "-" and "+" glyph buttons around the count, plus a small
+reset button
 
 **Concepts Demonstrated**:
 - Multiple UI components
@@ -67,7 +69,8 @@ Import todo_list.js into ScriptHost and run it
 
 ### 4. Network Request (`network_request.js`)
 
-**Description**: Fetches GitHub user information from API
+**Description**: Fetches GitHub user information from API. Compact input
+row: the username field fills the row, with an inline ">" go glyph
 
 **Concepts Demonstrated**:
 - HTTP GET requests
@@ -82,28 +85,29 @@ Import todo_list.js into ScriptHost and run it
 ```bash
 Import network_request.js into ScriptHost
 Grant INTERNET permission when prompted
-Enter a GitHub username and tap "Fetch User"
+Enter a GitHub username and tap ">" to fetch
 ```
 
 ---
 
 ### 5. Device Sensors (`sensors.js`)
 
-**Description**: Demonstrates accelerometer and vibration
+**Description**: Accelerometer and gyroscope readouts in compact axis rows,
+with inline glyph controls (">" start, "X" stop) and a vibrate test row
 
 **Concepts Demonstrated**:
-- Sensor API usage
+- Sensor API usage (accelerometer and gyroscope)
 - Real-time data updates
 - Starting/stopping sensors
 - Device vibration
 
-**Permissions Required**: `ACCELEROMETER`, `VIBRATE`
+**Permissions Required**: `ACCELEROMETER`, `GYROSCOPE`, `VIBRATE`
 
 **Usage**:
 ```bash
 Import sensors.js into ScriptHost
 Grant sensor permissions when prompted
-Tap "Start Sensor" to see accelerometer data
+Tap ">" next to a sensor to see live data
 Move your device to see values change
 ```
 
@@ -111,7 +115,9 @@ Move your device to see values change
 
 ### 6. Storage Demo (`storage.js`)
 
-**Description**: File storage operations (save, load, delete)
+**Description**: File storage operations (save, load, delete) as compact
+key/value rows with inline glyph actions (save "+", read "O", delete "X"),
+plus a refreshable file list with per-row delete glyphs
 
 **Concepts Demonstrated**:
 - File I/O operations
@@ -125,9 +131,9 @@ Move your device to see values change
 ```bash
 Import storage.js into ScriptHost
 Enter a key and value
-Tap "Save" to store data
-Tap "Load" to retrieve data
-Tap "Delete" to remove data
+Tap "+" to store data
+Tap "O" to retrieve data
+Tap "X" to delete data
 ```
 
 ---
@@ -193,9 +199,11 @@ first run.
 ### 9. Configurable UI Controls (`ui_controls.js`)
 
 **Description**: Showcases the expanded native UI interface: layout
-containers, form controls, common styling configuration, and dialog helpers.
-All properties are applied statically; the interface intentionally has no
-animation support.
+containers, form controls, common styling configuration, and dialog
+helpers, restyled as compact labeled rows (text fields and spinners fill
+their row, actions are small inline glyph labels, and only the primary
+"Apply" action stays a full button). All properties are applied statically;
+the interface intentionally has no animation support.
 
 **Concepts Demonstrated**:
 - `Layout` containers (vertical and horizontal) with gravity and nesting
@@ -219,10 +227,13 @@ Import ui_controls.js into ScriptHost and run it
 
 ### 10. Monitor Port Chart (`monitor_port_chart.js`)
 
-**Description**: Polls a monitor endpoint every 5 seconds and renders a
-rolling line chart of the last 20 numeric samples. The line is green while
-the latest sample is below the configured threshold and red otherwise (and
-immediately red when a check fails).
+**Description**: Polls a monitor endpoint on a configurable interval and
+renders a rolling line chart of the last 20 numeric samples. The line is
+green while the latest sample is below the configured threshold and red
+otherwise (and immediately red when a check fails). A compact
+target/interval row sits above the chart: the URL field fills the row, a
+small interval field sets the poll period in seconds, and "▶"/"■" glyphs
+start and stop polling.
 
 **Concepts Demonstrated**:
 - `Chart` widget (`new Chart("line")`, `setData`, `setLabels`, `setColor`)
@@ -238,38 +249,37 @@ immediately red when a check fails).
 1. Open Settings and add MONITOR_URL (optionally MONITOR_API_KEY and
    MONITOR_THRESHOLD, default 500)
 2. Import monitor_port_chart.js into ScriptHost
-3. Tap "Start Monitoring" to begin polling every 5 seconds
-4. Tap "Stop Monitoring" to pause
+3. Tap "▶" to begin polling on the configured interval
+4. Tap "■" to pause
 ```
 
 ---
 
 ### 11. Daily Fitness Checklist (`daily_fitness.js`)
 
-**Description**: A configurable daily checklist rendered from a markdown
-plan. The plan is configured in Settings (`FITNESS_PLAN_MD`, a multiline
-field declared via `Config.schema`); a small built-in sample plan is used
-until then. Checking an item grays it out and strikes it through, and the
-done-state is persisted per day (a new day starts unchecked).
+**Description**: Shows only TODAY's part of a configurable training cycle
+as a checklist. The plan is configured in Settings (`FITNESS_PLAN`, a small
+YAML subset declared via `Config.schema`: `cycle_days`, optional
+`cycle_start`, a `schedule` mapping cycle days to modules, and `modules`
+with `action`/`notes` entries); a small built-in sample plan is used until
+then. Each cycle day expands its modules: "action" lines become CheckBoxes,
+"notes" lines become compact gray annotations. Checking an item grays it
+out and strikes it through, and the done-state is persisted per date (a new
+day starts unchecked).
 
 **Concepts Demonstrated**:
 - Script-provided config fields (`Config.schema`) with the `multiline` type
-- Markdown checklist parsing: `#` lines become section labels, `- [ ]`
-  lines become CheckBoxes, other lines become gray notes
+- Small-YAML plan parsing: cycle schedule + module expansion
 - `setStrikeThrough` + text color for completed items
-- Per-day state persistence via `Storage` (`fitness_state_<yyyy-mm-dd>.json`)
-- `Scheduler.scheduleDaily` / `Scheduler.cancel` and `Notify.post`, with
-  the notification body reporting "N of M checklist items done today"
+- Per-date state persistence via `Storage` (`fitness_state_<date>.json`)
 
-**Permissions Required**: `NOTIFICATIONS`, `READ_STORAGE`, `WRITE_STORAGE`,
-`CONFIG`
+**Permissions Required**: `READ_STORAGE`, `WRITE_STORAGE`, `CONFIG`
 
 **Usage**:
 ```bash
 1. Import daily_fitness.js into ScriptHost and run it once
-2. Open Settings and paste your plan into the script's FITNESS_PLAN_MD field
+2. Open Settings and paste your plan into the script's FITNESS_PLAN field
 3. Check items off during the day; state resets on the next day
-4. Optionally enable the daily 8:00 reminder
 ```
 
 ---
@@ -277,7 +287,9 @@ done-state is persisted per day (a new day starts unchecked).
 ### 12. Stock Trends (`stock_trends.js`)
 
 **Description**: Loads daily closing prices for a stock symbol and renders
-them as a line chart - green when the window ends up, red when it ends down.
+them as a line chart - green when the window ends up, red when it ends
+down. Compact symbol row with an inline ">" glyph instead of a full-width
+button; status and stats sit below the chart.
 
 **Concepts Demonstrated**:
 - `Chart` widget with dynamic data and colors
@@ -293,7 +305,7 @@ them as a line chart - green when the window ends up, red when it ends down.
 1. Open Settings and add STOCK_API_URL containing a "{symbol}" placeholder
    (optionally STOCK_API_KEY sent as a Bearer token)
 2. Import stock_trends.js into ScriptHost
-3. Enter a symbol (e.g. AAPL) and tap "Load"
+3. Enter a symbol (e.g. AAPL) and tap ">"
 ```
 
 ---
@@ -326,9 +338,10 @@ output in a scrollable console.
 
 ### 14. Sub-Screens (`sub_screens.js`)
 
-**Description**: Master/detail demo using the page stack. Tapping an item
-pushes a detail page; a Back button (or the device back button) pops it
-again. A depth indicator shows the current stack depth.
+**Description**: Master/detail demo using the page stack. Tapping a compact
+master-list row (chevron glyph) pushes a detail page; the "<" glyph in the
+detail page (or the device back button) pops it again. A depth indicator
+shows the current stack depth.
 
 **Concepts Demonstrated**:
 - Sub-screen navigation with `UI.pushPage()` / `UI.popPage()`
@@ -342,7 +355,7 @@ again. A depth indicator shows the current stack depth.
 ```bash
 Import sub_screens.js into ScriptHost and run it
 Tap an item to push its detail page
-Tap "Back" (or the device back button) to pop it
+Tap "<" (or the device back button) to pop it
 ```
 
 ---
@@ -350,7 +363,7 @@ Tap "Back" (or the device back button) to pop it
 ### 15. Markdown Demo (`markdown_demo.js`)
 
 **Description**: Renders Markdown text with the built-in lightweight parser
-and replaces the content on demand when a button is tapped.
+and swaps the content on demand when the "<>" toggle glyph is tapped.
 
 **Concepts Demonstrated**:
 - `new Markdown(text)` and `UI.addView(md)`
@@ -362,7 +375,7 @@ and replaces the content on demand when a button is tapped.
 **Usage**:
 ```bash
 Import markdown_demo.js into ScriptHost and run it
-Tap "Show code sample" to swap in a fenced code block
+Tap "<>" to swap in a fenced code block
 ```
 
 ---
@@ -393,7 +406,9 @@ Grant the notifications permission when prompted
 
 **Description**: Displays read-only device and system information —
 manufacturer/model, device name, Android version, CPU architecture,
-time/timezone, and live memory/storage usage with a refresh button.
+time/timezone, and live memory/storage usage — presented as compact aligned
+rows (bold label left, gray value right) with an inline refresh glyph in
+the header.
 
 **Concepts Demonstrated**:
 - `Device.getInfo()` and `Device.getSystemInfo()` for version/ABI details
@@ -407,24 +422,80 @@ time/timezone, and live memory/storage usage with a refresh button.
 
 ### 18. Metronome (`metronome.js`)
 
-**Description**: A BPM metronome. A slider sets the tempo (40-208 BPM) with
-a live BPM label; a start/stop button toggles the beat. Each beat flashes
-the beat indicator and vibrates; the first beat of every 4 is accented
-(different color, longer vibration).
+**Description**: A full practice metronome. BPM 30-250 (grave to
+prestissimo) set with a slider plus `-`/`+` step buttons; tap tempo
+(average of the last 4 taps, reset after a 2 second gap); selectable time
+signature of 2, 3, 4, or 6 beats per bar with an accented downbeat. Clicks
+are audible via `Sound.playTone` (1568 Hz accent / 1046 Hz regular), with
+vibration feedback, a row of beat dots, and a big colored flash indicator
+showing the current beat.
 
 **Concepts Demonstrated**:
-- `setInterval`/`clearInterval` for periodic beats (always cleared before
-  re-creation, so timers never stack)
-- `Slider` with `setMin`/`setMax`/`setValue` and live updates
+- Drift-corrected timing: every beat is scheduled with `setTimeout` against
+  an absolute target time instead of `setInterval`, so the tempo never
+  drifts and mid-play changes stay smooth
+- `Sound.playTone(frequencyHz, durationMs)` for audible clicks
+- `Slider` with `setMin`/`setMax`/`setValue` plus compact glyph step buttons
+- Tap tempo averaging over the last 4 taps
 - `Device.vibrate` with accent patterns
-- Visual feedback via background-color flashes
+- Visual feedback via beat-dot row and background-color flashes
 
 **Permissions Required**: VIBRATE
 
 **Usage**:
 ```bash
 Import metronome.js into ScriptHost and run it
-Drag the slider to set the tempo, tap "Start"
+Drag the slider or tap -/+ to set the tempo, tap "Start"
+Tap "TAP" repeatedly to set the tempo by ear
+```
+
+---
+
+### 19. Camera Demo (`camera_demo.js`)
+
+**Description**: Captures a photo with the Camera API. `Camera.isAvailable`
+checks the hardware; a compact "CAM" glyph in the status row launches
+`Camera.takePhoto`, which calls back with `(base64, error)` — a JPEG base64
+string with no prefix on success, an error string on cancel or failure. The
+photo is shown in an ImageView below via `imageView.setImageBase64`.
+
+**Concepts Demonstrated**:
+- `Camera.isAvailable()` hardware check
+- `Camera.takePhoto(callback)` with `(base64, error)` result handling
+- Displaying a captured photo with `ImageView.setImageBase64(base64)`
+- Compact status row with an inline glyph action
+
+**Permissions Required**: `CAMERA`
+
+**Usage**:
+```bash
+Import camera_demo.js into ScriptHost and run it
+Grant the CAMERA permission when prompted
+Tap "CAM" to take a photo; it appears below the status row
+```
+
+---
+
+### 20. Sound Demo (`sound_demo.js`)
+
+**Description**: A musical note pad. One compact row of note buttons C4
+through C5 plays 300 ms tones via `Sound.playTone(frequencyHz, durationMs)`.
+A frequency slider (200-2000 Hz), a duration slider (50-1000 ms), and a
+volume slider (0-100 percent) feed a play button that uses
+`Sound.playTone(frequencyHz, durationMs, volume)` with volume 0.0-1.0.
+
+**Concepts Demonstrated**:
+- `Sound.playTone(frequencyHz, durationMs)` at full volume
+- `Sound.playTone(frequencyHz, durationMs, volume)` with volume 0.0-1.0
+- Compact weighted note-pad row of tap glyphs
+- Multiple `Slider` controls feeding one action
+
+**Permissions Required**: None (audio playback requires no permissions)
+
+**Usage**:
+```bash
+Import sound_demo.js into ScriptHost and run it
+Tap a note to play it, or set the sliders and tap the play button
 ```
 
 ---

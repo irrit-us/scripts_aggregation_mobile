@@ -17,9 +17,11 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.scripthost.R
 import com.scripthost.ScriptHostApplication
+import com.scripthost.bridge.CameraBridge
 import com.scripthost.bridge.ConfigBridge
 import com.scripthost.bridge.NotificationBridge
 import com.scripthost.bridge.SSHBridge
+import com.scripthost.bridge.SoundBridge
 import com.scripthost.bridge.SystemBridge
 import com.scripthost.bridge.UIBridge
 import com.scripthost.config.AppSettings
@@ -84,6 +86,13 @@ class ScriptRuntimeFragment : Fragment() {
     private var scriptEngine: JavaScriptEngine? = null
     private var scriptContext: ScriptContext? = null
     private var uiBridge: UIBridge? = null
+
+    /**
+     * Camera capture controller. Created at construction time because its
+     * activity-result contract must be registered before the fragment is
+     * CREATED.
+     */
+    private val cameraCaptureController = CameraCaptureController(this)
 
     /** Back closes the drawer, then pops a script page, then opens the drawer. */
     private val backCallback = object : OnBackPressedCallback(true) {
@@ -302,12 +311,18 @@ class ScriptRuntimeFragment : Fragment() {
                 )
                 val notificationBridge = NotificationBridge(requireContext(), permissionManager, scriptId)
                 val sshBridge = SSHBridge(permissionManager, scriptId)
+                val soundBridge = SoundBridge(requireContext(), permissionManager, scriptId)
+                val cameraBridge = CameraBridge(
+                    requireContext(), permissionManager, scriptId, cameraCaptureController
+                )
 
                 scriptEngine?.registerBridge(uiBridge)
                 scriptEngine?.registerBridge(systemBridge)
                 scriptEngine?.registerBridge(configBridge)
                 scriptEngine?.registerBridge(notificationBridge)
                 scriptEngine?.registerBridge(sshBridge)
+                scriptEngine?.registerBridge(soundBridge)
+                scriptEngine?.registerBridge(cameraBridge)
 
                 // Execute script
                 appendConsole("Starting script: ${context.script.name}")

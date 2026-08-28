@@ -290,6 +290,7 @@ class ScriptManager(
             detected += Permission.NOTIFICATIONS
         }
         if (source.contains("Config.")) detected += Permission.CONFIG
+        if (source.contains("Camera.")) detected += Permission.CAMERA
         return detected.toList()
     }
 

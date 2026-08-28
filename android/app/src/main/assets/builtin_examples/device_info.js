@@ -1,69 +1,91 @@
 // Example 17: Device Info
 // Demonstrates the read-only Device APIs: system version, architecture,
-// time/timezone, device name, memory and storage usage
+// time/timezone, device name, memory and storage usage.
+// Presented as compact aligned rows: bold label on the left, gray value
+// filling the rest of the row, plus an inline refresh glyph in the header.
 // Permissions: CONFIG
+
 UI.setTitle("Device Info");
 
+var ROW_TEXT_SIZE = 15;
 
 let info = Device.getInfo();
 let sys = Device.getSystemInfo();
 
-let staticLines = [
-    "Device: " + info.manufacturer + " " + info.model,
-    "Name: " + Device.getDeviceName(),
-    "Android: " + sys.androidVersion + " (SDK " + sys.sdkVersion + ")",
-    "ABI: " + sys.abi + " | supported: " + sys.supportedAbis.join(", ")
-];
+// Header row: title fills the row, inline refresh glyph sits on the right
+let headerRow = new Layout("horizontal");
+headerRow.setGravity("center_vertical");
+headerRow.setWidth(-1);
+UI.addView(headerRow);
 
-for (let i = 0; i < staticLines.length; i++) {
-    let row = new Label(staticLines[i]);
-    row.setTextSize(15);
+let headerLabel = new Label("Device Info");
+headerLabel.setTextSize(17);
+headerLabel.setBold(true);
+headerRow.addView(headerLabel);
+headerLabel.setWeight(1);
+
+// One aligned info row: label on the left, value weighted to fill the row
+function addInfoRow(name, valueText) {
+    let row = new Layout("horizontal");
+    row.setWidth(-1);
+    row.setGravity("center_vertical");
+
+    let nameLabel = new Label(name);
+    nameLabel.setTextSize(ROW_TEXT_SIZE);
+    nameLabel.setBold(true);
+    nameLabel.setPadding(0, 0, 12, 0);
+    row.addView(nameLabel);
+
+    let valueLabel = new Label(valueText);
+    valueLabel.setTextSize(ROW_TEXT_SIZE);
+    valueLabel.setTextColor("#888888");
+    row.addView(valueLabel);
+    valueLabel.setWeight(1);
+
     UI.addView(row);
+    return valueLabel;
 }
 
-// Dynamic rows keep their Label references so Refresh can update them
+// Static rows: values never change, so no references are kept
+addInfoRow("Device", info.manufacturer + " " + info.model);
+addInfoRow("Name", Device.getDeviceName());
+addInfoRow("Android", sys.androidVersion + " (SDK " + sys.sdkVersion + ")");
+addInfoRow("ABI", sys.abi + " | supported: " + sys.supportedAbis.join(", "));
+
+// Dynamic rows keep their value Label references so refresh can update them
 function timeText() {
-    return "Time: " + new Date(Device.getTime()).toLocaleString();
+    return new Date(Device.getTime()).toLocaleString();
 }
 function memoryText() {
     let mem = Device.getMemoryInfo();
-    return "Memory: " + mem.availableMB + " MB free / " + mem.totalMB + " MB total" +
+    return mem.availableMB + " MB free / " + mem.totalMB + " MB total" +
         (mem.lowMemory ? " (low!)" : "");
 }
 function storageText() {
     let store = Device.getStorageInfo();
-    return "Storage: " + store.usedMB + " MB used / " + store.totalMB + " MB total" +
-        (" (" + store.freeMB + " MB free)");
+    return store.usedMB + " MB used / " + store.totalMB + " MB total" +
+        " (" + store.freeMB + " MB free)";
 }
 
-let timeLabel = new Label(timeText());
-timeLabel.setTextSize(15);
-UI.addView(timeLabel);
+let timeValue = addInfoRow("Time", timeText());
+addInfoRow("Timezone", Device.getTimeZone());
+let memoryValue = addInfoRow("Memory", memoryText());
+let storageValue = addInfoRow("Storage", storageText());
 
-let timezoneLabel = new Label("Timezone: " + Device.getTimeZone());
-timezoneLabel.setTextSize(15);
-UI.addView(timezoneLabel);
+let keysValue = addInfoRow("Config keys", Config.keys().join(", "));
+keysValue.setTextSize(14);
 
-let memoryLabel = new Label(memoryText());
-memoryLabel.setTextSize(15);
-UI.addView(memoryLabel);
-
-let storageLabel = new Label(storageText());
-storageLabel.setTextSize(15);
-UI.addView(storageLabel);
-
-let keysLabel = new Label("Config keys: " + Config.keys().join(", "));
-keysLabel.setTextSize(14);
-UI.addView(keysLabel);
-
-let refreshBtn = new Button("Refresh");
-refreshBtn.setBackgroundColor("#007AFF");
-refreshBtn.setTextColor("#FFFFFF");
+// Compact refresh glyph in the theme's default text color instead of a
+// full-width button; roughly 1.5x the row text height
+let refreshBtn = new Label("↻");
+refreshBtn.setTextSize(ROW_TEXT_SIZE * 1.5);
+refreshBtn.setBold(true);
+refreshBtn.setPadding(16, 0, 16, 0);
 refreshBtn.setOnTap(function() {
-    timeLabel.setText(timeText());
-    memoryLabel.setText(memoryText());
-    storageLabel.setText(storageText());
+    timeValue.setText(timeText());
+    memoryValue.setText(memoryText());
+    storageValue.setText(storageText());
     showToast("Refreshed");
     console.log("Device info refreshed");
 });
-UI.addView(refreshBtn);
+headerRow.addView(refreshBtn);

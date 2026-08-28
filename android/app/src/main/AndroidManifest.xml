@@ -136,6 +136,17 @@
             </intent-filter>
         </activity>
 
+        <!-- FileProvider for camera capture output (Camera.takePhoto) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.scripthost.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

@@ -12,7 +12,6 @@
 // Permissions: INTERNET, CONFIG.
 UI.setTitle("Agent Chat");
 
-
 Config.schema(JSON.stringify([
     { key: "OPENAI_API_KEY", label: "API Key", type: "password" },
     { key: "AGENT_API_URL", label: "API Base URL", type: "text",
@@ -27,6 +26,7 @@ let COLOR_USER = "#D1E7FF";
 let COLOR_AGENT = "#F1F1F1";
 let COLOR_SYSTEM = "#FFE0E0";
 let history = [];
+let chatRows = [];
 
 // Static setup hint: only shown when no key is configured yet
 if (!Config.get("OPENAI_API_KEY")) {
@@ -36,24 +36,58 @@ if (!Config.get("OPENAI_API_KEY")) {
     UI.addView(hint);
 }
 
-// Scrollable chat area; messages are appended as colored labels
+// Scrollable chat area; messages are appended as bubble rows
 let chatScroll = new ScrollView();
 chatScroll.setHeight(320);
 let chatLayout = new Layout("vertical");
+chatLayout.setWidth(-1);
 chatScroll.addView(chatLayout);
 UI.addView(chatScroll);
+
+// Status row: status text fills the row, "X" clear glyph on the right
+let statusRow = new Layout("horizontal");
+statusRow.setWidth(-1);
+statusRow.setGravity("center_vertical");
+UI.addView(statusRow);
 
 let statusLabel = new Label("Ready");
 statusLabel.setTextSize(12);
 statusLabel.setTextColor("#888888");
-UI.addView(statusLabel);
+statusRow.addView(statusLabel);
+statusLabel.setWeight(1);
+
+let clearBtn = new Label("X");
+clearBtn.setTextSize(18);
+clearBtn.setBold(true);
+clearBtn.setPadding(16, 0, 8, 0);
+clearBtn.setOnTap(function() {
+    history = [];
+    for (let idx = 0; idx < chatRows.length; idx++) {
+        chatLayout.removeView(chatRows[idx]);
+    }
+    chatRows = [];
+    statusLabel.setText("Cleared");
+    console.log("Chat history cleared");
+});
+statusRow.addView(clearBtn);
+
+// Compact input row: message field filling the row, ">" send glyph on the right
+let inputRow = new Layout("horizontal");
+inputRow.setWidth(-1);
+inputRow.setGravity("center_vertical");
+UI.addView(inputRow);
 
 let messageInput = new TextField("Ask the agent something...");
-UI.addView(messageInput);
+messageInput.setTextSize(14);
+inputRow.addView(messageInput);
+messageInput.setWeight(1);
 
-let sendBtn = new Button("Send");
-sendBtn.setBackgroundColor("#10a37f");
-sendBtn.setTextColor("#FFFFFF");
+// Compact ">" send glyph tinted with the accent color, ~1.5x the text height
+let sendBtn = new Label(">");
+sendBtn.setTextSize(21);
+sendBtn.setBold(true);
+sendBtn.setTextColor("#10a37f");
+sendBtn.setPadding(16, 0, 16, 0);
 sendBtn.setOnTap(function() {
     let userMessage = messageInput.getValue();
     if (userMessage && userMessage.trim() !== "") {
@@ -62,21 +96,38 @@ sendBtn.setOnTap(function() {
         showToast("Please enter a message");
     }
 });
-UI.addView(sendBtn);
+inputRow.addView(sendBtn);
 
 function addMessage(text, bgColor, alignRight) {
     // Each message lives in a full-width row so the bubble hugs its side:
     // agent/system on the left, the user's own messages on the right.
     let row = new Layout("horizontal");
+    row.setWidth(-1);
     row.setGravity(alignRight ? "right" : "left");
+
+    // A small side glyph marks who is speaking: agent vs user
+    let badge = new Label(alignRight ? "You" : "AI");
+    badge.setTextSize(11);
+    badge.setTextColor("#888888");
+    badge.setPadding(4, 0, 4, 0);
+
     let bubble = new Label(text);
     bubble.setTextSize(14);
     bubble.setBackgroundColor(bgColor);
     bubble.setCornerRadius(8);
     bubble.setPadding(12, 8, 12, 8);
     bubble.setMargin(0, 4, 0, 4);
-    row.addView(bubble);
+    bubble.setWeight(1);
+
+    if (alignRight) {
+        row.addView(bubble);
+        row.addView(badge);
+    } else {
+        row.addView(badge);
+        row.addView(bubble);
+    }
     chatLayout.addView(row);
+    chatRows.push(row);
 }
 
 function sendMessage(userMessage) {
@@ -96,6 +147,7 @@ function sendMessage(userMessage) {
     statusLabel.setText("Waiting for agent...");
     let startedAt = Date.now();
     history.push({ role: "user", content: userMessage });
+    console.log("Message sent to " + model + ": " + userMessage);
 
     let headers = {
         "Authorization": "Bearer " + apiKey,
@@ -123,10 +175,10 @@ function sendMessage(userMessage) {
             addMessage(reply, COLOR_AGENT, false);
             statusLabel.setText(model + " | HTTP 2xx | " + elapsed + " ms");
             console.log("Agent replied in " + elapsed + " ms");
-        } catch (e) {
+        } catch (err) {
             addMessage("Could not parse the agent response.", COLOR_SYSTEM, false);
             statusLabel.setText(model + " | parse error | " + elapsed + " ms");
-            console.error("Agent response parse error: " + e);
+            console.error("Agent response parse error: " + err);
         }
     });
 }

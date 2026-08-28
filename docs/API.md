@@ -10,10 +10,12 @@ Complete API documentation for writing scripts in ScriptHost.
 4. [Storage API](#storage-api)
 5. [Sensor API](#sensor-api)
 6. [Device API](#device-api)
-7. [Notify API](#notify-api)
-8. [Scheduler API](#scheduler-api)
-9. [SSH API](#ssh-api)
-10. [Global Functions](#global-functions)
+7. [Sound API](#sound-api)
+8. [Camera API](#camera-api)
+9. [Notify API](#notify-api)
+10. [Scheduler API](#scheduler-api)
+11. [SSH API](#ssh-api)
+12. [Global Functions](#global-functions)
 
 ---
 
@@ -995,6 +997,92 @@ console.log("ABI: " + sys.abi + " of " + sys.supportedAbis.join(", "));
 
 ---
 
+## Sound API
+
+Play short sine-wave tones. Playback requires no permissions. All calls are
+fire-and-forget: they return immediately and invalid arguments (non-numeric
+or out-of-range values) are ignored without an error.
+
+### Sound.playTone(frequencyHz, durationMs)
+
+Play a sine tone at full volume.
+
+**Parameters:**
+- `frequencyHz` (number) - Tone frequency in hertz
+- `durationMs` (number) - Tone duration in milliseconds
+
+**Permissions Required:** None
+
+**Example:**
+```javascript
+Sound.playTone(440, 300); // A4 for 300ms
+```
+
+---
+
+### Sound.playTone(frequencyHz, durationMs, volume)
+
+Play a sine tone with an explicit volume.
+
+**Parameters:**
+- `frequencyHz` (number) - Tone frequency in hertz
+- `durationMs` (number) - Tone duration in milliseconds
+- `volume` (number) - Volume from 0.0 (silent) to 1.0 (full)
+
+**Permissions Required:** None
+
+**Example:**
+```javascript
+Sound.playTone(880, 200, 0.5); // half volume
+```
+
+---
+
+## Camera API
+
+Capture photos with the device camera. Requires the `CAMERA` script
+permission (dangerous; approved by the user at runtime).
+
+### Camera.isAvailable()
+
+Check whether the device has a usable camera.
+
+**Returns:** Boolean
+
+**Example:**
+```javascript
+if (Camera.isAvailable()) {
+    console.log("Camera ready");
+}
+```
+
+---
+
+### Camera.takePhoto(callback)
+
+Launch the camera UI and deliver the captured photo to a callback.
+
+**Parameters:**
+- `callback` (function) - Called with `(base64, error)`. On success `base64`
+  is a JPEG base64 string (no `data:` prefix, longest side downscaled to
+  1280 px) and `error` is `null`; on cancel or failure `base64` is `null`
+  and `error` is a string
+
+**Permissions Required:** `CAMERA`
+
+**Example:**
+```javascript
+Camera.takePhoto(function(base64, error) {
+    if (error) {
+        showToast("Camera: " + error);
+        return;
+    }
+    imageView.setImageBase64(base64); // display the photo
+});
+```
+
+---
+
 ## Notify API
 
 Posts immediate local notifications.
@@ -1376,7 +1464,7 @@ Scripts must declare required permissions in their metadata:
 - `WRITE_STORAGE` - Write files
 - `LOCATION_FINE` - Precise location (dangerous)
 - `LOCATION_COARSE` - Approximate location (dangerous)
-- `CAMERA` - Camera access (dangerous)
+- `CAMERA` - Camera access (dangerous); required by `Camera.takePhoto`
 - `RECORD_AUDIO` - Microphone access (dangerous)
 - `ACCELEROMETER` - Accelerometer sensor
 - `GYROSCOPE` - Gyroscope sensor
@@ -1390,7 +1478,8 @@ Scripts must declare required permissions in their metadata:
 Dangerous permissions require user approval at runtime.
 
 > **Enforcement note**: Declaring a permission is only half of the gate. Every
-> bridge (Network, Config, Storage, Notify, Scheduler, SSH, etc.) is bound to
+> bridge (Network, Config, Storage, Notify, Scheduler, SSH, Camera, etc.) is
+> bound to
 > the running script's ID and calls
 > `PermissionManager.hasScriptPermission(scriptId, permission)` before each
 > sensitive operation, so the permission must both be declared by the script

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- New `Sound` script API: `Sound.playTone(frequencyHz, durationMs)` and
+  `Sound.playTone(frequencyHz, durationMs, volume)` play sine-wave tones
+  (volume 0.0-1.0); fire-and-forget, requires no permissions, invalid
+  arguments are ignored
+- New `Camera` script API: `Camera.isAvailable()` returns whether the
+  device has a usable camera, and `Camera.takePhoto(callback)` launches the
+  camera UI and calls back with `(base64, error)` — on success a JPEG
+  base64 string (no `data:` prefix, longest side downscaled to 1280 px),
+  on cancel/failure an error string. Display photos with the existing
+  `ImageView.setImageBase64(base64)`. Requires the `CAMERA` script
+  permission (previously declared but unused; now enforced)
+- New built-in examples: `camera_demo.js` (Example 19, Camera API capture
+  and display) and `sound_demo.js` (Example 20, note pad plus
+  frequency/duration/volume sliders)
+
+### Changed
+- `metronome.js` rewritten as a full practice metronome: BPM 30-250 with
+  slider and `-`/`+` step buttons, tap tempo (average of the last 4 taps),
+  time signature of 2/3/4/6 beats per bar with accented downbeat, audible
+  clicks via `Sound.playTone` (1568 Hz accent / 1046 Hz regular), beat-dot
+  row and colored flash indicator, and drift-corrected `setTimeout`
+  scheduling replacing `setInterval`
+- `daily_fitness.js` plan config switched from markdown (`FITNESS_PLAN_MD`)
+  to a small YAML subset (`FITNESS_PLAN`) describing a training cycle; only
+  today's modules are shown and the notification reminder was dropped
+- UI unification across the built-in examples in the todo_list style:
+  compact horizontal rows with inline glyph buttons (labels used as
+  tap targets) replacing most full-width buttons
+
+
 ## [0.1.0] - 2026-08-28
 
 ### Added

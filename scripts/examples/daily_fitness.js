@@ -92,7 +92,10 @@ function parseYamlPlan(text) {
 
         if (section === "schedule") {
             let dayMatch = line.match(/^-\s*day:\s*(\d+)\s*$/);
-            if (dayMatch) { currentEntry = parseInt(dayMatch[1]); plan.schedule[currentEntry] = []; inNotes = false; continue; }
+            if (dayMatch) {
+                currentEntry = parseInt(dayMatch[1]);
+                plan.schedule[currentEntry] = []; inNotes = false; continue;
+            }
             let inlineModules = line.match(/^modules:\s*\[(.*)\]\s*$/);
             if (inlineModules && currentEntry !== null) {
                 plan.schedule[currentEntry] = inlineModules[1].split(",")
@@ -183,6 +186,17 @@ if (!Array.isArray(doneIndexes)) doneIndexes = [];
 
 function saveState() { Storage.writeFile(stateFile, JSON.stringify(doneIndexes)); }
 
+// Custom extra actions for today, stored per date like the done state
+let extrasFile = "fitness_extra_" + dateKey(now) + ".json";
+let extras = [];
+try {
+    let rawExtras = Storage.readFile(extrasFile);
+    if (rawExtras) extras = JSON.parse(rawExtras) || [];
+} catch (e) { extras = []; }
+if (!Array.isArray(extras)) extras = [];
+
+function saveExtras() { Storage.writeFile(extrasFile, JSON.stringify(extras)); }
+
 // --- Render: today only ---
 let DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 let weekday = DAY_NAMES[(now.getDay() + 6) % 7];
@@ -198,59 +212,137 @@ statusLabel.setTextSize(13);
 statusLabel.setTextColor("#888888");
 UI.addView(statusLabel);
 
-let actionCount = 0;
+let actionCount = 0;  // visible actions, for the status line
+let nextIndex = 0;    // stable done-state indexes, only ever increases
 
 function refreshStatus() {
     statusLabel.setText(doneIndexes.length + " of " + actionCount + " done today");
 }
 
-for (let m = 0; m < moduleNames.length; m++) {
-    let found = findModule(moduleNames[m]);
+// One vertical list holds section labels, item rows, and note lines
+let listLayout = new Layout("vertical");
+listLayout.setWidth(-1);
+
+// Compact add row: input fills the row, "+" glyph on the right appends a
+// custom action for today
+let addRow = new Layout("horizontal");
+addRow.setWidth(-1);
+addRow.setGravity("center_vertical");
+UI.addView(addRow);
+
+let input = new TextField("Add an extra action for today...");
+addRow.addView(input);
+input.setWeight(1);
+
+let addBtn = new Label("+");
+addBtn.setTextSize(22);  // about 1.5x the row text size
+addBtn.setBold(true);
+addBtn.setPadding(16, 0, 16, 0);
+addRow.addView(addBtn);
+
+UI.addView(listLayout);
+
+// Todo-style row: checkbox weighted to fill the row, small "X" glyph on
+// the right for custom actions; notes render as compact lines underneath
+function renderItem(item, custom) {
+    let idx = nextIndex++;
+    actionCount++;
+
+    let row = new Layout("horizontal");
+    row.setWidth(-1);
+    row.setGravity("center_vertical");
+    let rowViews = [row];
+
+    let check = new CheckBox(item.action);
+    if (doneIndexes.indexOf(idx) >= 0) {
+        check.setChecked(true);
+        check.setStrikeThrough(true);
+        check.setTextColor("#888888");
+    }
+    check.setOnChange(function(checked) {
+        check.setStrikeThrough(checked);
+        check.setTextColor(checked ? "#888888" : "");
+        let at = doneIndexes.indexOf(idx);
+        if (checked && at < 0) doneIndexes.push(idx);
+        if (!checked && at >= 0) doneIndexes.splice(at, 1);
+        saveState();
+        refreshStatus();
+        console.log((checked ? "Done: " : "Reopened: ") + item.action);
+    });
+    row.addView(check);
+    check.setWeight(1);
+
+    if (custom) {
+        let deleteBtn = new Label("X");
+        deleteBtn.setTextSize(15);
+        deleteBtn.setPadding(12, 0, 12, 0);
+        deleteBtn.setOnTap(function() {
+            for (let viewIdx = 0; viewIdx < rowViews.length; viewIdx++) {
+                listLayout.removeView(rowViews[viewIdx]);
+            }
+            let atExtra = extras.indexOf(item.action);
+            if (atExtra >= 0) extras.splice(atExtra, 1);
+            let atDone = doneIndexes.indexOf(idx);
+            if (atDone >= 0) doneIndexes.splice(atDone, 1);
+            actionCount--;
+            saveExtras();
+            saveState();
+            refreshStatus();
+            console.log("Removed custom action: " + item.action + " (" + extras.length + " left)");
+        });
+        row.addView(deleteBtn);
+    }
+    listLayout.addView(row);
+
+    // Compact annotation lines under the action: no checkbox
+    for (let noteIdx = 0; noteIdx < item.notes.length; noteIdx++) {
+        let note = new Label(item.notes[noteIdx]);
+        note.setTextSize(12);
+        note.setTextColor("#888888");
+        note.setMargin(36, 0, 0, 2);
+        listLayout.addView(note);
+        rowViews.push(note);
+    }
+}
+
+addBtn.setOnTap(function() {
+    let text = input.getValue();
+    if (text && text.trim() !== "") {
+        let action = text.trim();
+        extras.push(action);
+        saveExtras();
+        renderItem({ action: action, notes: [] }, true);
+        input.setValue("");
+        refreshStatus();
+        console.log("Custom action added: " + action + " (" + extras.length + " total)");
+    }
+});
+
+for (let moduleIdx = 0; moduleIdx < moduleNames.length; moduleIdx++) {
+    let found = findModule(moduleNames[moduleIdx]);
     if (!found) continue;
 
     let sectionLabel = new Label(found);
     sectionLabel.setTextSize(15);
     sectionLabel.setBold(true);
     sectionLabel.setTextColor("#007AFF");
-    UI.addView(sectionLabel);
+    listLayout.addView(sectionLabel);
 
     let moduleItems = plan.modules[found];
-    for (let k = 0; k < moduleItems.length; k++) {
-        (function(idx, item) {
-            let check = new CheckBox(item.action);
-            if (doneIndexes.indexOf(idx) >= 0) {
-                check.setChecked(true);
-                check.setStrikeThrough(true);
-                check.setTextColor("#888888");
-            }
-            check.setOnChange(function(checked) {
-                check.setStrikeThrough(checked);
-                check.setTextColor(checked ? "#888888" : "");
-                let at = doneIndexes.indexOf(idx);
-                if (checked && at < 0) doneIndexes.push(idx);
-                if (!checked && at >= 0) doneIndexes.splice(at, 1);
-                saveState();
-                refreshStatus();
-            });
-            UI.addView(check);
-
-            // Compact annotation lines under the action: no checkbox
-            for (let n = 0; n < item.notes.length; n++) {
-                let note = new Label(item.notes[n]);
-                note.setTextSize(12);
-                note.setTextColor("#888888");
-                note.setMargin(36, 0, 0, 2);
-                UI.addView(note);
-            }
-        })(actionCount, moduleItems[k]);
-        actionCount++;
+    for (let itemIdx = 0; itemIdx < moduleItems.length; itemIdx++) {
+        renderItem(moduleItems[itemIdx], false);
     }
+}
+
+// Reload the custom extras saved for today
+for (let extraIdx = 0; extraIdx < extras.length; extraIdx++) {
+    renderItem({ action: extras[extraIdx], notes: [] }, true);
 }
 
 if (actionCount === 0) {
     let rest = new Label("Rest day - nothing scheduled. The plan can be configured in Settings.");
     rest.setTextColor("#888888");
-    UI.addView(rest);
+    listLayout.addView(rest);
 }
 
 refreshStatus();

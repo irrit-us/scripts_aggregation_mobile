@@ -265,6 +265,32 @@ check("Device.vibrate", function() {
 });
 
 // ---------------------------------------------------------------
+// Sound (playback requires no permission)
+// ---------------------------------------------------------------
+
+check("Sound.playTone (2 args)", function() {
+    Sound.playTone(440, 100);
+    return true;
+});
+
+check("Sound.playTone (3 args)", function() {
+    Sound.playTone(880, 100, 0.5);
+    return true;
+});
+
+// ---------------------------------------------------------------
+// Camera (takePhoto not invoked: it launches the camera UI)
+// ---------------------------------------------------------------
+
+check("Camera.isAvailable", function() {
+    return typeof Camera.isAvailable() === "boolean";
+});
+
+check("Camera.takePhoto is a function", function() {
+    return typeof Camera.takePhoto === "function";
+});
+
+// ---------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------
 

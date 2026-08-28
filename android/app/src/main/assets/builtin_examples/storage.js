@@ -1,42 +1,55 @@
 // Example 6: Storage Demo
-// Demonstrates file storage capabilities
+// Compact key/value rows with inline glyph actions: save "+", read "O",
+// delete "X", plus a refreshable file list with per-row delete glyphs.
 // Permissions: READ_STORAGE, WRITE_STORAGE
+
 UI.setTitle("Storage");
 
+var glyphSize = 24; // glyph labels roughly 1.5x the 16pt input text size
 
-let keyInput = new TextField("Enter key");
-UI.addView(keyInput);
+// Row 1: key input filling the row, glyph actions on the right
+var keyRow = new Layout("horizontal");
+keyRow.setGravity("center_vertical");
+keyRow.setWidth(-1);
+UI.addView(keyRow);
 
-let valueInput = new TextField("Enter value");
-UI.addView(valueInput);
+var keyInput = new TextField("Enter key");
+keyInput.setTextSize(16);
+keyRow.addView(keyInput);
+keyInput.setWeight(1);
 
-let saveBtn = new Button("Save");
-saveBtn.setBackgroundColor("#4CAF50");
-saveBtn.setTextColor("#FFFFFF");
+// Save glyph: writes the value to "<key>.txt"
+var saveBtn = new Label("+");
+saveBtn.setTextSize(glyphSize);
+saveBtn.setBold(true);
+saveBtn.setPadding(12, 0, 12, 0);
 saveBtn.setOnTap(function() {
-    let key = keyInput.getValue();
-    let value = valueInput.getValue();
+    var key = keyInput.getValue();
+    var value = valueInput.getValue();
 
     if (key && value) {
-        let success = Storage.writeFile(key + ".txt", value);
+        var success = Storage.writeFile(key + ".txt", value);
         if (success) {
             showToast("Saved successfully");
             console.log("Saved: " + key);
+            refreshFiles();
         } else {
             showToast("Save failed");
         }
     }
 });
-UI.addView(saveBtn);
+keyRow.addView(saveBtn);
 
-let loadBtn = new Button("Load");
-loadBtn.setBackgroundColor("#2196F3");
-loadBtn.setTextColor("#FFFFFF");
+// Read glyph: loads "<key>.txt" back into the value input
+var loadBtn = new Label("O");
+loadBtn.setTextSize(glyphSize);
+loadBtn.setBold(true);
+loadBtn.setPadding(12, 0, 12, 0);
 loadBtn.setOnTap(function() {
-    let key = keyInput.getValue();
+    var key = keyInput.getValue();
 
     if (key) {
-        let value = Storage.readFile(key + ".txt");
+        var value = Storage.readFile(key + ".txt");
         if (value) {
             valueInput.setValue(value);
             showToast("Loaded successfully");
@@ -46,40 +59,119 @@ loadBtn.setOnTap(function() {
         }
     }
 });
-UI.addView(loadBtn);
+keyRow.addView(loadBtn);
 
-let deleteBtn = new Button("Delete");
-deleteBtn.setBackgroundColor("#F44336");
-deleteBtn.setTextColor("#FFFFFF");
+// Delete glyph: removes "<key>.txt"
+var deleteBtn = new Label("X");
+deleteBtn.setTextSize(glyphSize);
+deleteBtn.setBold(true);
+deleteBtn.setPadding(12, 0, 12, 0);
 deleteBtn.setOnTap(function() {
-    let key = keyInput.getValue();
+    var key = keyInput.getValue();
 
     if (key) {
-        let success = Storage.deleteFile(key + ".txt");
+        var success = Storage.deleteFile(key + ".txt");
         if (success) {
             showToast("Deleted successfully");
             console.log("Deleted: " + key);
+            refreshFiles();
         } else {
             showToast("Delete failed");
         }
     }
 });
-UI.addView(deleteBtn);
+keyRow.addView(deleteBtn);
 
-let listLabel = new Label("Files: (none)");
+// Row 2: value input filling the row
+var valueRow = new Layout("horizontal");
+valueRow.setGravity("center_vertical");
+valueRow.setWidth(-1);
+UI.addView(valueRow);
+
+var valueInput = new TextField("Enter value");
+valueInput.setTextSize(16);
+valueRow.addView(valueInput);
+valueInput.setWeight(1);
+
+// File list header: title filling the row, refresh glyph on the right
+var listHeader = new Layout("horizontal");
+listHeader.setGravity("center_vertical");
+listHeader.setWidth(-1);
+UI.addView(listHeader);
+
+var listLabel = new Label("Files:");
 listLabel.setTextSize(14);
-UI.addView(listLabel);
+listLabel.setBold(true);
+listHeader.addView(listLabel);
+listLabel.setWeight(1);
 
-let listBtn = new Button("List Files");
-listBtn.setBackgroundColor("#607D8B");
-listBtn.setTextColor("#FFFFFF");
-listBtn.setOnTap(function() {
-    let files = Storage.listFiles(".");
-    if (files && files.length > 0) {
-        listLabel.setText("Files: " + files.join(", "));
-        console.log("Files: " + files.join(", "));
-    } else {
-        listLabel.setText("Files: (none)");
-    }
+var refreshBtn = new Label("~");
+refreshBtn.setTextSize(glyphSize);
+refreshBtn.setBold(true);
+refreshBtn.setPadding(12, 0, 12, 0);
+refreshBtn.setOnTap(function() {
+    refreshFiles();
+    console.log("File list refreshed");
 });
-UI.addView(listBtn);
+listHeader.addView(refreshBtn);
+
+// One row per file: name fills the row, "X" delete glyph on the right
+var listLayout = new Layout("vertical");
+listLayout.setWidth(-1);
+UI.addView(listLayout);
+
+function refreshFiles() {
+    listLayout.removeAllViews();
+
+    var files = Storage.listFiles(".");
+    if (!files || files.length === 0) {
+        listLabel.setText("Files: (none)");
+        return;
+    }
+    listLabel.setText("Files: " + files.length);
+
+    for (var i = 0; i < files.length; i++) {
+        addFileRow(files[i]);
+    }
+    console.log("Files: " + files.join(", "));
+}
+
+function addFileRow(name) {
+    var row = new Layout("horizontal");
+    row.setWidth(-1);
+    row.setGravity("center_vertical");
+
+    // Tapping the name loads the file into the inputs
+    var nameLabel = new Label(name);
+    nameLabel.setTextSize(14);
+    nameLabel.setOnTap(function() {
+        keyInput.setValue(name.replace(/\.txt$/, ""));
+        var value = Storage.readFile(name);
+        if (value) {
+            valueInput.setValue(value);
+        }
+        console.log("Loaded: " + name);
+    });
+    row.addView(nameLabel);
+    nameLabel.setWeight(1);
+
+    var rowDelete = new Label("X");
+    rowDelete.setTextSize(18);
+    rowDelete.setBold(true);
+    rowDelete.setPadding(12, 0, 12, 0);
+    rowDelete.setOnTap(function() {
+        var success = Storage.deleteFile(name);
+        if (success) {
+            showToast("Deleted successfully");
+            console.log("Deleted: " + name);
+            refreshFiles();
+        } else {
+            showToast("Delete failed");
+        }
+    });
+    row.addView(rowDelete);
+
+    listLayout.addView(row);
+}
+
+refreshFiles();

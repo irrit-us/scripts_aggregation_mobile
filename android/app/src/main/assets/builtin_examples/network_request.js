@@ -1,25 +1,38 @@
 // Example 4: Network Request
-// Fetches data from an API and displays it
+// Fetches GitHub user info: a compact input row (URL/username field filling
+// the row plus an inline ">" go glyph), with the result area shown below.
 // Permissions: INTERNET
+
 UI.setTitle("Network Request");
 
+// Compact input row: field fills the row, ">" go glyph on the right
+let inputRow = new Layout("horizontal");
+inputRow.setGravity("center_vertical");
+inputRow.setWidth(-1);
+UI.addView(inputRow);
 
 let usernameInput = new TextField("Enter GitHub username");
-UI.addView(usernameInput);
+usernameInput.setTextSize(16);
+inputRow.addView(usernameInput);
+usernameInput.setWeight(1);
 
-let fetchBtn = new Button("Fetch User");
-fetchBtn.setBackgroundColor("#24292e");
-fetchBtn.setTextColor("#FFFFFF");
-fetchBtn.setOnTap(function() {
+// Compact ">" glyph instead of a full-width button; ~1.5x the text height
+let goBtn = new Label(">");
+goBtn.setTextSize(16 * 1.5);
+goBtn.setBold(true);
+goBtn.setPadding(16, 0, 16, 0);
+goBtn.setOnTap(function() {
     let username = usernameInput.getValue();
     if (username && username.trim() !== "") {
+        console.log("Fetching user: " + username.trim());
         fetchUserInfo(username.trim());
     } else {
         showToast("Please enter a username");
     }
 });
-UI.addView(fetchBtn);
+inputRow.addView(goBtn);
 
+// Result area below the input row
 let resultLabel = new Label("");
 resultLabel.setTextSize(14);
 UI.addView(resultLabel);

@@ -1,11 +1,12 @@
 // Example 12: Stock Trends
 // Loads daily closing prices for a stock symbol and renders them as a
 // line chart. Green when the window ends up, red when it ends down.
+// Compact symbol row with an inline ">" glyph instead of a full-width
+// button; status and stats sit below the chart.
 // The script declares its configurable fields via Config.schema(); after
 // it has run once, they appear in Settings under the script's section.
 // Permissions: INTERNET, CONFIG
 UI.setTitle("Stock Trends");
-
 
 Config.schema(JSON.stringify([
     { key: "STOCK_API_URL", label: "API URL (with {symbol})", type: "text" },
@@ -17,22 +18,33 @@ hint.setTextSize(12);
 hint.setTextColor("#888888");
 UI.addView(hint);
 
+// Compact symbol row: input field filling the row, ">" go glyph on the right
+let inputRow = new Layout("horizontal");
+inputRow.setGravity("center_vertical");
+inputRow.setWidth(-1);
+UI.addView(inputRow);
+
 let symbolInput = new TextField("Stock symbol");
 symbolInput.setText("AAPL");
-UI.addView(symbolInput);
+inputRow.addView(symbolInput);
+symbolInput.setWeight(1);
 
-let loadBtn = new Button("Load");
-loadBtn.setBackgroundColor("#007AFF");
-loadBtn.setTextColor("#FFFFFF");
-loadBtn.setOnTap(function() {
+// Compact ">" glyph in the theme's default text color instead of a full
+// button; ~1.5x the input text height
+let goBtn = new Label(">");
+goBtn.setTextSize(24);
+goBtn.setBold(true);
+goBtn.setPadding(16, 0, 16, 0);
+goBtn.setOnTap(function() {
     let symbol = symbolInput.getValue();
     if (symbol && symbol.trim() !== "") {
+        console.log("Go tapped for symbol: " + symbol.trim());
         loadTrends(symbol.trim());
     } else {
         showToast("Please enter a symbol");
     }
 });
-UI.addView(loadBtn);
+inputRow.addView(goBtn);
 
 let chart = new Chart("line");
 chart.setWidth(-1);
@@ -41,7 +53,7 @@ chart.setMargin(0, 8, 0, 8);
 chart.setColor("#34C759");
 UI.addView(chart);
 
-let statusLabel = new Label("Enter a symbol and tap Load.");
+let statusLabel = new Label("Enter a symbol and tap >.");
 statusLabel.setTextSize(14);
 UI.addView(statusLabel);
 

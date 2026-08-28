@@ -1,12 +1,14 @@
 // Example 10: Monitor Port Chart
-// Polls a monitor endpoint every 5 seconds and renders a rolling line chart
-// of the last 20 numeric values. Green line while below the threshold,
-// red otherwise; red immediately when the check fails (DOWN).
+// Polls a monitor endpoint on a configurable interval and renders a rolling
+// line chart of the last 20 numeric values. Green line while below the
+// threshold, red otherwise; red immediately when the check fails (DOWN).
 // The script declares its configurable fields via Config.schema(); after
 // it has run once, they appear in Settings under the script's section.
+// A compact target/interval row sits above the chart: the URL field fills
+// the row, a small interval field sets the poll period in seconds, and
+// inline glyph buttons start and stop polling.
 // Permissions: INTERNET, CONFIG
 UI.setTitle("Port Monitor");
-
 
 Config.schema(JSON.stringify([
     { key: "MONITOR_URL", label: "Monitor URL", type: "text" },
@@ -14,24 +16,50 @@ Config.schema(JSON.stringify([
     { key: "MONITOR_THRESHOLD", label: "Threshold", type: "number" }
 ]));
 
-let hint = new Label("Configure MONITOR_URL and optional MONITOR_API_KEY / MONITOR_THRESHOLD in Settings.");
+let baseSize = 14;
+
+let hint = new Label("Target defaults to MONITOR_URL from Settings; threshold via MONITOR_THRESHOLD.");
 hint.setTextSize(12);
 hint.setTextColor("#888888");
 UI.addView(hint);
 
-let startBtn = new Button("Start Monitoring");
-startBtn.setBackgroundColor("#007AFF");
-startBtn.setTextColor("#FFFFFF");
+// Compact controls row: target field filling the row, interval field,
+// then inline start/stop glyphs at about 1.5x the row text size
+let controlsRow = new Layout("horizontal");
+controlsRow.setGravity("center_vertical");
+controlsRow.setWidth(-1);
+UI.addView(controlsRow);
+
+let targetInput = new TextField("Target URL...");
+targetInput.setTextSize(baseSize);
+let savedUrl = Config.get("MONITOR_URL");
+if (savedUrl) {
+    targetInput.setValue(savedUrl);
+}
+controlsRow.addView(targetInput);
+targetInput.setWeight(1);
+
+let intervalInput = new TextField("5");
+intervalInput.setTextSize(baseSize);
+controlsRow.addView(intervalInput);
+
+let startBtn = new Label("▶");
+startBtn.setTextSize(baseSize * 1.5);
+startBtn.setBold(true);
+startBtn.setPadding(16, 0, 8, 0);
 startBtn.setOnTap(function() {
     startMonitoring();
 });
-UI.addView(startBtn);
+controlsRow.addView(startBtn);
 
-let stopBtn = new Button("Stop Monitoring");
+let stopBtn = new Label("■");
+stopBtn.setTextSize(baseSize * 1.5);
+stopBtn.setBold(true);
+stopBtn.setPadding(8, 0, 16, 0);
 stopBtn.setOnTap(function() {
     stopMonitoring();
 });
-UI.addView(stopBtn);
+controlsRow.addView(stopBtn);
 
 let chart = new Chart("line");
 chart.setWidth(-1);
@@ -40,39 +68,58 @@ chart.setMargin(0, 8, 0, 8);
 chart.setColor("#34C759");
 UI.addView(chart);
 
+// Status row: state label fills the row, detail note right-aligned
+let statusRow = new Layout("horizontal");
+statusRow.setGravity("center_vertical");
+statusRow.setWidth(-1);
+UI.addView(statusRow);
+
 let statusLabel = new Label("Stopped");
 statusLabel.setTextSize(16);
-UI.addView(statusLabel);
+statusLabel.setBold(true);
+statusRow.addView(statusLabel);
+statusLabel.setWeight(1);
 
-let detailLabel = new Label("Press Start to begin polling every 5 seconds.");
-detailLabel.setTextSize(13);
+let detailLabel = new Label("Press play to begin polling.");
+detailLabel.setTextSize(12);
 detailLabel.setTextColor("#888888");
-UI.addView(detailLabel);
+statusRow.addView(detailLabel);
 
 let monitorTimer = null;
-let pollIntervalMs = 5000;
 let requestInFlight = false;
 let values = [];
 let maxWindow = 20;
+
+function getIntervalMs() {
+    let secs = parseInt(intervalInput.getValue());
+    if (isNaN(secs) || secs < 1 || secs > 3600) {
+        return 5000;
+    }
+    return secs * 1000;
+}
 
 function startMonitoring() {
     if (monitorTimer !== null) {
         showToast("Already monitoring");
         return;
     }
-    let url = Config.get("MONITOR_URL");
+    let url = targetInput.getValue();
+    if (!url || url.trim() === "") {
+        url = Config.get("MONITOR_URL");
+    }
     if (!url) {
-        statusLabel.setText("Missing MONITOR_URL");
-        detailLabel.setText("Add MONITOR_URL in Settings, then try again.");
+        statusLabel.setText("Missing target URL");
+        detailLabel.setText("Enter a URL above or set MONITOR_URL in Settings.");
         console.error("Missing MONITOR_URL configuration");
         return;
     }
+    let intervalMs = getIntervalMs();
     statusLabel.setText("Monitoring...");
     pollOnce(url);
     monitorTimer = setInterval(function() {
         pollOnce(url);
-    }, pollIntervalMs);
-    console.log("Port chart monitoring started for " + url);
+    }, intervalMs);
+    console.log("Port chart monitoring started for " + url + " every " + intervalMs + " ms");
 }
 
 function stopMonitoring() {
@@ -82,7 +129,7 @@ function stopMonitoring() {
     }
     requestInFlight = false;
     statusLabel.setText("Stopped");
-    detailLabel.setText("Press Start to resume polling.");
+    detailLabel.setText("Press play to resume polling.");
     console.log("Port chart monitoring stopped");
 }
 
@@ -140,9 +187,9 @@ function handleResponse(data, error) {
     let info;
     try {
         info = JSON.parse(data);
-    } catch (e) {
+    } catch (err) {
         markDown("Invalid JSON response");
-        console.error("Parse error: " + e);
+        console.error("Parse error: " + err);
         return;
     }
     let sample = extractValue(info);

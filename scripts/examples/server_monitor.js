@@ -8,7 +8,6 @@
 // Permissions: INTERNET, CONFIG
 UI.setTitle("Server Monitor");
 
-
 Config.schema(JSON.stringify([
     { key: "MONITOR_URL", label: "Monitor URL", type: "text" },
     { key: "MONITOR_API_KEY", label: "API Key", type: "password" },
@@ -16,37 +15,52 @@ Config.schema(JSON.stringify([
       default: "5" }
 ]));
 
+let monitorTimer = null;
+let pollIntervalMs = 5000;
+let requestInFlight = false;
+
 let hint = new Label("Configure MONITOR_URL and optional MONITOR_API_KEY in Settings.");
 hint.setTextSize(12);
 hint.setTextColor("#888888");
 UI.addView(hint);
 
-let startBtn = new Button("Start Monitoring");
-startBtn.setBackgroundColor("#007AFF");
-startBtn.setTextColor("#FFFFFF");
-startBtn.setOnTap(function() {
-    startMonitoring();
-});
-UI.addView(startBtn);
-
-let stopBtn = new Button("Stop Monitoring");
-stopBtn.setOnTap(function() {
-    stopMonitoring();
-});
-UI.addView(stopBtn);
+// Compact control row: status text filling the row, ">" start and "X" stop
+// glyph buttons on the right, instead of stacked full-width buttons
+let controlRow = new Layout("horizontal");
+controlRow.setWidth(-1);
+controlRow.setGravity("center_vertical");
+UI.addView(controlRow);
 
 let statusLabel = new Label("Stopped");
 statusLabel.setTextSize(16);
-UI.addView(statusLabel);
+controlRow.addView(statusLabel);
+statusLabel.setWeight(1);
 
-let detailLabel = new Label("Press Start to begin polling every 5 seconds.");
+// Play-triangle glyph starts polling; ~1.5x the status text size
+let startBtn = new Label(">");
+startBtn.setTextSize(24);
+startBtn.setBold(true);
+startBtn.setPadding(16, 0, 16, 0);
+startBtn.setOnTap(function() {
+    startMonitoring();
+});
+controlRow.addView(startBtn);
+
+// "X" glyph stops polling
+let stopBtn = new Label("X");
+stopBtn.setTextSize(24);
+stopBtn.setBold(true);
+stopBtn.setPadding(16, 0, 16, 0);
+stopBtn.setOnTap(function() {
+    stopMonitoring();
+});
+controlRow.addView(stopBtn);
+
+// Secondary detail line below the control row
+let detailLabel = new Label("Tap > to begin polling every 5 seconds.");
 detailLabel.setTextSize(13);
 detailLabel.setTextColor("#888888");
 UI.addView(detailLabel);
-
-let monitorTimer = null;
-let pollIntervalMs = 5000;
-let requestInFlight = false;
 
 function readIntervalMs() {
     let seconds = parseInt(Config.get("MONITOR_INTERVAL_SEC") || "5", 10);
@@ -84,7 +98,7 @@ function stopMonitoring() {
     }
     requestInFlight = false;
     statusLabel.setText("Stopped");
-    detailLabel.setText("Press Start to resume polling.");
+    detailLabel.setText("Tap > to resume polling.");
     console.log("Server monitoring stopped");
 }
 
