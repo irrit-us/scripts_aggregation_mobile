@@ -39,7 +39,7 @@ A powerful mobile script host environment that enables users to write and instal
 - **Secure Sandbox**: Isolated script execution with permission management
 - **Script Management**: Install, update, and manage scripts locally
 - **Discord-Style Drawer UI**: Left drawer holds the script list; scripts run in the content area beside it under one slim in-app header (☰ + title, no system ActionBar)
-- **Configuration Interface**: App-level options in Settings (debug mode, appearance, script timeout, keep screen on, drawer auto-open), plus per-script config sections rendered from script-declared schemas (`Config.schema`)
+- **Configuration Interface**: App-level options in Settings (debug mode, appearance, script timeout, keep screen on, drawer auto-open, local proxy), plus per-script config sections rendered from script-declared schemas (`Config.schema`)
 - **Custom API Calls**: HTTP GET/POST with custom headers for authenticated APIs
 - **Wrapped Agent Conversations**: Example agent-chat script for OpenAI-compatible endpoints
 - **Server Monitoring**: Example script that polls and displays server health status

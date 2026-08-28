@@ -15,7 +15,7 @@ import com.scripthost.ScriptHostApplication
  *
  * Sections (top to bottom):
  *  1. App: debug mode, appearance, script timeout, keep screen on, open
- *     drawer on launch — app-only preferences persisted in
+ *     drawer on launch, local proxy — app-only preferences persisted in
  *     [com.scripthost.config.AppSettings] (SharedPreferences).
  *  2. Installed scripts: declared permissions plus granted permissions with
  *     per-permission revoke.
@@ -203,6 +203,38 @@ class SettingsActivity : AppCompatActivity() {
             })
         })
         rootLayout.addView(timeoutRow)
+
+        // Local proxy ("host:port", empty = none): script network requests
+        // are forwarded through this HTTP proxy; persisted as typed
+        val proxyRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(0, 8, 0, 8)
+        }
+        proxyRow.addView(TextView(this).apply {
+            text = getString(R.string.local_proxy_label)
+            textSize = 15f
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        })
+        proxyRow.addView(EditText(this).apply {
+            setText(appSettings.localProxyAddress.orEmpty())
+            hint = getString(R.string.local_proxy_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine()
+            setEms(10)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    appSettings.localProxyAddress = s?.toString()?.trim()?.ifEmpty { null }
+                }
+            })
+        })
+        rootLayout.addView(proxyRow)
 
         // Keep screen on while a script is running
         rootLayout.addView(Switch(this).apply {

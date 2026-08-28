@@ -20,6 +20,7 @@ import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
+import com.scripthost.config.AppSettings
 import com.scripthost.engine.ScriptBridge
 import com.scripthost.models.Permission
 import com.scripthost.security.PermissionManager
@@ -30,6 +31,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URL
 import java.util.TimeZone
 
@@ -50,6 +53,7 @@ class SystemBridge(
     private var runtime: V8? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private val appSettings by lazy { AppSettings(context) }
 
     /**
      * Handler of the engine's V8 thread, captured in [register] (which the
@@ -123,6 +127,20 @@ class SystemBridge(
     }
 
     // Network API
+
+    /**
+     * Open an HTTP connection to [url], forwarding through the app-level
+     * local proxy (Settings → App) when one is configured.
+     */
+    private fun openHttpConnection(url: String): HttpURLConnection {
+        val proxy = parseProxy(appSettings.localProxyAddress)
+        val connection = if (proxy != null) {
+            URL(url).openConnection(proxy)
+        } else {
+            URL(url).openConnection()
+        }
+        return connection as HttpURLConnection
+    }
 
     /**
      * Dispatch a `Network.get` call based on the number of JS arguments:
@@ -199,7 +217,7 @@ class SystemBridge(
 
         scope.launch {
             try {
-                val connection = URL(url).openConnection() as HttpURLConnection
+                val connection = openHttpConnection(url)
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
@@ -237,7 +255,7 @@ class SystemBridge(
 
         scope.launch {
             try {
-                val connection = URL(url).openConnection() as HttpURLConnection
+                val connection = openHttpConnection(url)
                 connection.requestMethod = "POST"
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
@@ -665,6 +683,21 @@ class SystemBridge(
 
     companion object {
         private const val MIB = 1024L * 1024L
+
+        /**
+         * Parse a "host:port" proxy address into an HTTP [Proxy]; returns
+         * null for blank or malformed input so callers fail open to a direct
+         * connection. V8-free so it is JVM-testable.
+         */
+        internal fun parseProxy(address: String?): Proxy? {
+            val trimmed = address?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val parts = trimmed.split(":")
+            if (parts.size != 2) return null
+            val host = parts[0]
+            val port = parts[1].toIntOrNull() ?: return null
+            if (host.isEmpty() || port !in 1..65535) return null
+            return Proxy(Proxy.Type.HTTP, InetSocketAddress(host, port))
+        }
     }
 }
 

@@ -247,6 +247,33 @@ class SystemBridgeTest {
         assertThrows(IllegalStateException::class.java) { bridge.getSystemInfo() }
     }
 
+    @Test
+    fun parseProxy_nullOrBlank_returnsNull() {
+        assertThat(SystemBridge.parseProxy(null)).isNull()
+        assertThat(SystemBridge.parseProxy("")).isNull()
+        assertThat(SystemBridge.parseProxy("   ")).isNull()
+    }
+
+    @Test
+    fun parseProxy_validHostPort_returnsHttpProxy() {
+        val proxy = SystemBridge.parseProxy("127.0.0.1:7890")
+
+        assertThat(proxy).isNotNull()
+        assertThat(proxy!!.type()).isEqualTo(java.net.Proxy.Type.HTTP)
+        val address = proxy.address() as java.net.InetSocketAddress
+        assertThat(address.hostString).isEqualTo("127.0.0.1")
+        assertThat(address.port).isEqualTo(7890)
+    }
+
+    @Test
+    fun parseProxy_malformed_returnsNull() {
+        assertThat(SystemBridge.parseProxy("no-port")).isNull()
+        assertThat(SystemBridge.parseProxy("host:notaport")).isNull()
+        assertThat(SystemBridge.parseProxy(":8080")).isNull()
+        assertThat(SystemBridge.parseProxy("host:0")).isNull()
+        assertThat(SystemBridge.parseProxy("host:70000")).isNull()
+    }
+
     private fun grantStorageToScript(manager: PermissionManager, scriptId: String) {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val script = Script(

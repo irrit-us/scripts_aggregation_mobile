@@ -5,7 +5,7 @@ import androidx.appcompat.app.AppCompatDelegate
 
 /**
  * App-level settings (debug mode, light/dark appearance, script timeout,
- * keep-screen-on, drawer auto-open).
+ * keep-screen-on, drawer auto-open, local proxy address).
  *
  * Persisted in SharedPreferences, separate from [ConfigStore]: ConfigStore
  * holds script-readable key/value config (API keys etc.), while these are
@@ -45,6 +45,17 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean(KEY_OPEN_DRAWER_ON_LAUNCH, true)
         set(value) = prefs.edit().putBoolean(KEY_OPEN_DRAWER_ON_LAUNCH, value).apply()
 
+    /**
+     * Local HTTP proxy address as "host:port" (e.g. "127.0.0.1:7890") through
+     * which script network requests are forwarded; null/empty (default) means
+     * no proxy.
+     */
+    var localProxyAddress: String?
+        get() = prefs.getString(KEY_LOCAL_PROXY_ADDRESS, null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit()
+            .putString(KEY_LOCAL_PROXY_ADDRESS, value?.trim()?.ifEmpty { null })
+            .apply()
+
     companion object {
         private const val PREFS_NAME = "app_settings"
         private const val KEY_DEBUG_MODE = "debug_mode"
@@ -52,6 +63,7 @@ class AppSettings(context: Context) {
         private const val KEY_ENGINE_TIMEOUT_SECONDS = "engine_timeout_seconds"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_OPEN_DRAWER_ON_LAUNCH = "open_drawer_on_launch"
+        private const val KEY_LOCAL_PROXY_ADDRESS = "local_proxy_address"
         const val DEFAULT_ENGINE_TIMEOUT_SECONDS = 30
     }
 }

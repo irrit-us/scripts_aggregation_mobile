@@ -45,4 +45,22 @@ class AppSettingsTest {
         settings.debugMode = false
         assertThat(settings.debugMode).isFalse()
     }
+
+    @Test
+    fun localProxyAddress_defaultsToNull() {
+        assertThat(settings.localProxyAddress).isNull()
+    }
+
+    @Test
+    fun localProxyAddress_roundTrips() {
+        settings.localProxyAddress = "127.0.0.1:7890"
+        assertThat(settings.localProxyAddress).isEqualTo("127.0.0.1:7890")
+    }
+
+    @Test
+    fun localProxyAddress_blankResetsToNull() {
+        settings.localProxyAddress = "127.0.0.1:7890"
+        settings.localProxyAddress = "   "
+        assertThat(settings.localProxyAddress).isNull()
+    }
 }

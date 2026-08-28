@@ -58,6 +58,8 @@
     <string name="debug_mode_label">Debug mode (mirror script console to Logcat)</string>
     <string name="appearance_label">Appearance</string>
     <string name="script_timeout_label">Script timeout (seconds)</string>
+    <string name="local_proxy_label">Local proxy</string>
+    <string name="local_proxy_hint">host:port (empty = none)</string>
     <string name="keep_screen_on_label">Keep screen on while running</string>
     <string name="open_drawer_on_launch_label">Open drawer on launch</string>
     <string name="script_config_saved">%1$s settings saved</string>

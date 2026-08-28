@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-28
+
+### Added
+- App-level local proxy setting: Settings → App → "Local proxy" accepts a
+  `host:port` HTTP proxy address (empty/none by default); `Network.get` and
+  `Network.post` requests are forwarded through it when set
+  (`AppSettings.localProxyAddress`)
+
 ### Added
 - Full-screen editor sub-screen for long config values: `multiline` schema
   fields in Settings now render as a compact preview row (max 2 lines,
