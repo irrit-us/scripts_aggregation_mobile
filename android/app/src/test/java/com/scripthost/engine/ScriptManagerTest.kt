@@ -238,6 +238,30 @@ class ScriptManagerTest {
     }
 
     @Test
+    fun installScriptFromFile_displayOverrides_applyToRawJavaScript() = runBlocking {
+        val scriptFile = File(tempFolder.root, "todo_list.js")
+        scriptFile.writeText("console.log('raw');")
+
+        val result = scriptManager.installScriptFromFile(
+            scriptFile,
+            verifySignature = false,
+            displayName = "Todo List",
+            displayDescription = "A compact checklist"
+        )
+        assertThat(result is InstallResult.Success).isTrue()
+        val script = (result as InstallResult.Success).script
+        assertThat(script.name).isEqualTo("Todo List")
+        assertThat(script.description).isEqualTo("A compact checklist")
+        // A prettified filename override generates the same id as the raw
+        // filename, so both spellings report installed and reinstalls
+        // overwrite the same entry
+        assertThat(script.id).isEqualTo("unknown.todo_list")
+        assertThat(scriptManager.isInstalled("Todo List")).isTrue()
+        assertThat(scriptManager.isInstalled("todo_list")).isTrue()
+        assertThat(scriptManager.isInstalled("Other Script")).isFalse()
+    }
+
+    @Test
     fun scriptsPersistAcrossManagerInstances() = runBlocking {
         installUnsigned()
 

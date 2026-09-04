@@ -180,17 +180,7 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         if (prefs.getBoolean(KEY_GUIDE_INSTALLED, false)) return
 
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                try {
-                    val dest = File(File(filesDir, "imports").apply { mkdirs() }, GUIDE_EXAMPLE_FILE)
-                    assets.open("$BUILTIN_EXAMPLES_DIR/$GUIDE_EXAMPLE_FILE").use { input ->
-                        dest.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    scriptManager.installScriptFromFile(dest, verifySignature = false)
-                } catch (e: Exception) {
-                    InstallResult.Failure(e.message ?: "guide install failed")
-                }
-            }
+            val result = installBuiltinAsset(GUIDE_EXAMPLE_FILE)
             prefs.edit().putBoolean(KEY_GUIDE_INSTALLED, true).apply()
             loadScripts()
             (result as? InstallResult.Success)?.let { runScript(it.script) }
@@ -212,6 +202,42 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         val isLightBackground = nightMode != android.content.res.Configuration.UI_MODE_NIGHT_YES
         androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
             .isAppearanceLightStatusBars = isLightBackground
+    }
+
+    /** dp → px for the programmatic views in this activity. */
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    /**
+     * A drawer action glyph ("+", "⚙"): 48dp square touch target with a
+     * borderless ripple so taps give feedback.
+     */
+    private fun drawerAction(
+        glyph: String,
+        sizeSp: Float,
+        bold: Boolean,
+        description: String,
+        onClick: () -> Unit
+    ): TextView {
+        return TextView(this).apply {
+            text = glyph
+            textSize = sizeSp
+            if (bold) setTypeface(null, Typeface.BOLD)
+            gravity = Gravity.CENTER
+            minWidth = dp(48)
+            minHeight = dp(48)
+            background = selectableBackground(borderless = true)
+            contentDescription = description
+            setOnClickListener { onClick() }
+        }
+    }
+
+    /** The theme's selectable-item ripple, used for row/action backgrounds. */
+    private fun selectableBackground(borderless: Boolean = false): android.graphics.drawable.Drawable? {
+        val attr = if (borderless) android.R.attr.selectableItemBackgroundBorderless
+            else android.R.attr.selectableItemBackground
+        val value = TypedValue()
+        theme.resolveAttribute(attr, value, true)
+        return androidx.core.content.ContextCompat.getDrawable(this, value.resourceId)
     }
 
     private fun setupUI() {
@@ -275,61 +301,65 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
         // ---- Left drawer panel ----
         drawerPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 40, 24, 24)
+            setPadding(dp(16), dp(24), dp(16), dp(12))
         }
         // Match the theme background so the panel is opaque
-        val background = TypedValue()
-        theme.resolveAttribute(android.R.attr.colorBackground, background, true)
-        drawerPanel.setBackgroundColor(background.data)
+        drawerPanel.setBackgroundColor(themeColor(this, android.R.attr.colorBackground))
 
-        // 1. App title header + subtitle (fixed; the list scrolls beneath it)
+        val secondaryText = themeColor(this, android.R.attr.textColorSecondary)
+        val hairline = themeColor(this, androidx.appcompat.R.attr.colorControlHighlight)
+
+        // 1. App title header + subtitle + hairline (fixed; the list scrolls beneath)
         drawerPanel.addView(TextView(this).apply {
             text = "SAM"
             textSize = 28f
             setTypeface(null, Typeface.BOLD)
-            setPadding(8, 8, 8, 0)
+            setPadding(dp(8), dp(4), dp(8), 0)
         })
         drawerPanel.addView(TextView(this).apply {
             text = getString(R.string.app_subtitle)
             textSize = 12f
-            setTextColor(Color.GRAY)
-            setPadding(8, 0, 8, 16)
+            setTextColor(secondaryText)
+            setPadding(dp(8), 0, dp(8), dp(12))
+        })
+        drawerPanel.addView(View(this).apply {
+            setBackgroundColor(hairline)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
+            setMargins(dp(8), 0, dp(8), dp(8))
         })
 
         // 2. Section label
         drawerPanel.addView(TextView(this).apply {
             text = getString(R.string.drawer_scripts_label)
-            textSize = 13f
-            setTextColor(Color.GRAY)
-            setPadding(8, 8, 8, 8)
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            isAllCaps = true
+            letterSpacing = 0.08f
+            setTextColor(secondaryText)
+            setPadding(dp(8), dp(4), dp(8), dp(4))
         })
 
-        // 3. Script list (scrolls independently under the fixed header)
-        scriptListView = ListView(this)
+        // 3. Script list (scrolls independently under the fixed header); the
+        // selector ripples beneath each row on touch
+        scriptListView = ListView(this).apply {
+            selector = selectableBackground()
+            divider = null
+        }
 
         // 4. Compact icon row appended right after the last script entry:
-        // "+" add, gear settings. Added as a list footer so it follows the
-        // items instead of pinning to the panel bottom.
+        // "+" add, gear settings — 48dp targets with a borderless ripple.
+        // Added as a list footer so it follows the items instead of pinning
+        // to the panel bottom.
         val iconRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(4), dp(4), 0)
         }
-        iconRow.addView(TextView(this).apply {
-            text = "+"
-            textSize = 26f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(24, 12, 24, 12)
-            contentDescription = getString(R.string.cd_add_script)
-            setOnClickListener { showAddScriptDialog() }
+        iconRow.addView(drawerAction("+", 26f, true, getString(R.string.cd_add_script)) {
+            showAddScriptDialog()
         })
-        iconRow.addView(TextView(this).apply {
-            text = "⚙"
-            textSize = 22f
-            setPadding(24, 12, 24, 12)
-            contentDescription = getString(R.string.cd_settings)
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-            }
+        iconRow.addView(drawerAction("⚙", 22f, false, getString(R.string.cd_settings)) {
+            startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
         })
         scriptListView.addFooterView(iconRow, null, false)
 
@@ -551,24 +581,85 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
             .show()
     }
 
-    /** Picker for the examples bundled in assets (see builtin_examples/). */
+    /**
+     * Picker for the examples bundled in assets (see builtin_examples/).
+     * Each row shows the title and summary parsed from the script's header
+     * comments; already-installed examples carry an "Installed" badge and
+     * reinstalling overwrites the same entry.
+     */
     private fun showBuiltinExamplesDialog() {
+        lifecycleScope.launch {
+            val examples = withContext(Dispatchers.IO) { loadBuiltinExamples() }
+            if (examples.isEmpty()) {
+                Toast.makeText(this@MainActivity, R.string.import_read_failed, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            val installedFilenames = examples
+                .filter { scriptManager.isInstalled(it.title) }
+                .map { it.filename }
+                .toSet()
+
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(getString(R.string.builtin_examples_title))
+                .setAdapter(
+                    BuiltinExamplesAdapter(this@MainActivity, examples, installedFilenames)
+                ) { _, which -> installBuiltinExample(examples[which]) }
+                .setNegativeButton(getString(R.string.cancel), null)
+                .show()
+        }
+    }
+
+    /** List and parse the bundled examples; call from a background thread. */
+    private fun loadBuiltinExamples(): List<BuiltinExample> {
         val files = try {
             assets.list(BUILTIN_EXAMPLES_DIR)?.sorted() ?: emptyList()
         } catch (e: Exception) {
             emptyList()
         }
-        if (files.isEmpty()) {
-            Toast.makeText(this, R.string.import_read_failed, Toast.LENGTH_SHORT).show()
-            return
+        return files.mapNotNull { filename ->
+            try {
+                val source = assets.open("$BUILTIN_EXAMPLES_DIR/$filename").use { input ->
+                    input.bufferedReader().readText()
+                }
+                parseBuiltinExample(filename, source)
+            } catch (e: Exception) {
+                null
+            }
         }
+    }
 
-        val displayNames = files.map { builtinDisplayName(it) }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.builtin_examples_title))
-            .setItems(displayNames) { _, which -> installBuiltinExample(files[which]) }
-            .setNegativeButton(getString(R.string.cancel), null)
-            .show()
+    /**
+     * Parse display text out of a bundled example's leading comment block:
+     * the title comes from an "// Example N: Title" line (falling back to
+     * the prettified filename), the summary from the comment lines that
+     * follow, stopping at the first blank comment line and dropping any
+     * "Permissions:" note. Headers without an Example line ("// Guide - ...")
+     * keep all lines for the summary, minus a leading "Title - " prefix.
+     */
+    private fun parseBuiltinExample(filename: String, source: String): BuiltinExample {
+        val comments = source.lineSequence()
+            .takeWhile { it.trimStart().startsWith("//") }
+            .map { it.trimStart().removePrefix("//").trim() }
+            .toList()
+
+        val titleMatch = comments.firstOrNull()
+            ?.let { Regex("^Example\\s+\\d+:\\s*(.+)$").find(it) }
+        val title = titleMatch?.groupValues?.get(1)?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: builtinDisplayName(filename)
+
+        val summaryLines = (if (titleMatch != null) comments.drop(1) else comments)
+            .takeWhile { it.isNotEmpty() }
+            .filterNot { it.startsWith("Permissions:") }
+            .toMutableList()
+        if (summaryLines.isNotEmpty()) {
+            summaryLines[0] = summaryLines[0].removePrefix("$title - ")
+        }
+        val summary = summaryLines.joinToString(" ").trim()
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+        return BuiltinExample(filename, title, summary)
     }
 
     /** "todo_list.js" -> "Todo List" */
@@ -578,33 +669,48 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
     }
 
     /**
-     * Install a bundled example: copy the asset into filesDir/imports, then
-     * install it via [com.scripthost.engine.ScriptManager.installScriptFromFile]
-     * (same pattern as the URI import).
+     * Copy a bundled example asset into filesDir/imports, then install it via
+     * [com.scripthost.engine.ScriptManager.installScriptFromFile] (same
+     * pattern as the URI import), passing the parsed header title/summary so
+     * the drawer shows real text instead of the raw filename and a generic
+     * "Imported script" description. The prettified title generates the same
+     * script id as the raw filename, so reinstalls overwrite the same entry.
      */
-    private fun installBuiltinExample(filename: String) {
-        lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                try {
-                    val dest = File(File(filesDir, "imports").apply { mkdirs() }, filename)
-                    assets.open("$BUILTIN_EXAMPLES_DIR/$filename").use { input ->
-                        dest.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    scriptManager.installScriptFromFile(dest, verifySignature = false)
-                } catch (e: Exception) {
-                    InstallResult.Failure(getString(R.string.import_failed, e.message ?: ""))
+    private suspend fun installBuiltinAsset(filename: String): InstallResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                val source = assets.open("$BUILTIN_EXAMPLES_DIR/$filename").use { input ->
+                    input.bufferedReader().readText()
                 }
+                val example = parseBuiltinExample(filename, source)
+                val dest = File(File(filesDir, "imports").apply { mkdirs() }, filename)
+                dest.writeText(source)
+                scriptManager.installScriptFromFile(
+                    dest,
+                    verifySignature = false,
+                    displayName = example.title,
+                    displayDescription = example.summary.ifBlank { null }
+                )
+            } catch (e: Exception) {
+                InstallResult.Failure(getString(R.string.import_failed, e.message ?: ""))
             }
+        }
+    }
 
-            when (result) {
+    /**
+     * Install a bundled example picked from the dialog. The agent chat needs
+     * API config to be useful, so it gets an extra hint after install.
+     */
+    private fun installBuiltinExample(example: BuiltinExample) {
+        lifecycleScope.launch {
+            when (val result = installBuiltinAsset(example.filename)) {
                 is InstallResult.Success -> {
                     Toast.makeText(
                         this@MainActivity,
                         getString(R.string.script_installed_toast, result.script.name),
                         Toast.LENGTH_SHORT
                     ).show()
-                    if (filename == AGENT_EXAMPLE_FILE) {
-                        // The agent chat needs API config to be useful
+                    if (example.filename == AGENT_EXAMPLE_FILE) {
                         Toast.makeText(
                             this@MainActivity,
                             getString(R.string.agent_config_hint),
@@ -798,7 +904,9 @@ class MainActivity : AppCompatActivity(), ScriptRuntimeFragment.Host {
 }
 
 /**
- * Adapter for script list
+ * Adapter for the drawer script list: bold name above a two-line description
+ * and a version/author line, all in theme-driven colors. The running script
+ * gets a rounded row tinted with the theme primary plus a "Running" badge.
  */
 class ScriptAdapter(
     private val context: MainActivity,
@@ -814,41 +922,147 @@ class ScriptAdapter(
     override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
         val script = scripts[position]
         val isRunning = script.id == context.runningScriptId
+        val density = context.resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        val accent = themeColor(context, androidx.appcompat.R.attr.colorPrimary)
+        val secondary = themeColor(context, android.R.attr.textColorSecondary)
 
         val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
-            // Translucent accent tint marks the currently running script;
-            // readable in both light and dark themes
-            if (isRunning) setBackgroundColor(RUNNING_BACKGROUND)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            // Rounded ~12% primary tint marks the running script; translucent
+            // enough for the list selector ripple to show through
+            if (isRunning) {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = 12f * density
+                    setColor((accent and 0xFFFFFF) or 0x1F000000)
+                }
+            }
         }
 
-        val nameText = TextView(context).apply {
+        val nameRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        nameRow.addView(TextView(context).apply {
             text = script.name
-            textSize = 18f
+            textSize = 16f
             setTypeface(null, Typeface.BOLD)
-            if (isRunning) setTextColor(RUNNING_ACCENT)
+            if (isRunning) setTextColor(accent)
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        if (isRunning) {
+            nameRow.addView(TextView(context).apply {
+                text = context.getString(R.string.drawer_running_badge)
+                textSize = 11f
+                setTextColor(accent)
+                setPadding(dp(8), 0, 0, 0)
+            })
         }
-        layout.addView(nameText)
+        layout.addView(nameRow)
 
-        val descText = TextView(context).apply {
-            text = script.description
-            textSize = 14f
+        if (script.description.isNotBlank()) {
+            layout.addView(TextView(context).apply {
+                text = script.description
+                textSize = 13f
+                setTextColor(secondary)
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setPadding(0, dp(2), 0, 0)
+            })
         }
-        layout.addView(descText)
 
-        val infoText = TextView(context).apply {
+        layout.addView(TextView(context).apply {
             text = "v${script.version} by ${script.author}"
-            textSize = 12f
-            setTextColor(Color.GRAY)
-        }
-        layout.addView(infoText)
+            textSize = 11f
+            setTextColor(secondary)
+            setPadding(0, dp(2), 0, 0)
+        })
 
         return layout
     }
+}
 
-    companion object {
-        private const val RUNNING_BACKGROUND = 0x22007AFF
-        private const val RUNNING_ACCENT = 0xFF007AFF.toInt()
+/** A bundled example script with display text parsed from its header comments. */
+private data class BuiltinExample(
+    val filename: String,
+    val title: String,
+    val summary: String
+)
+
+/**
+ * Two-line rows for the built-in examples picker: bold title (with an
+ * "Installed" badge when the example is already installed) above a gray,
+ * at most two-line summary parsed from the script's header comments.
+ */
+private class BuiltinExamplesAdapter(
+    private val context: MainActivity,
+    private val examples: List<BuiltinExample>,
+    private val installedFilenames: Set<String>
+) : BaseAdapter() {
+
+    override fun getCount(): Int = examples.size
+
+    override fun getItem(position: Int): Any = examples[position]
+
+    override fun getItemId(position: Int): Long = position.toLong()
+
+    override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+        val example = examples[position]
+        val density = context.resources.displayMetrics.density
+
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                (20 * density).toInt(), (10 * density).toInt(),
+                (20 * density).toInt(), (10 * density).toInt()
+            )
+        }
+
+        val titleRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(TextView(context).apply {
+            text = example.title
+            textSize = 16f
+            setTypeface(null, Typeface.BOLD)
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        if (example.filename in installedFilenames) {
+            titleRow.addView(TextView(context).apply {
+                text = context.getString(R.string.builtin_example_installed)
+                textSize = 12f
+                setTextColor(themeColor(context, androidx.appcompat.R.attr.colorPrimary))
+                setPadding((8 * density).toInt(), 0, 0, 0)
+            })
+        }
+        layout.addView(titleRow)
+
+        if (example.summary.isNotBlank()) {
+            layout.addView(TextView(context).apply {
+                text = example.summary
+                textSize = 13f
+                setTextColor(themeColor(context, android.R.attr.textColorSecondary))
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setPadding(0, (2 * density).toInt(), 0, 0)
+            })
+        }
+
+        return layout
+    }
+}
+
+/**
+ * Resolve a theme color attribute to a color int, unwrapping color state
+ * lists (e.g. android.R.attr.textColorSecondary) to their default color.
+ */
+private fun themeColor(context: android.content.Context, attr: Int): Int {
+    val value = TypedValue()
+    context.theme.resolveAttribute(attr, value, true)
+    return if (value.resourceId != 0) {
+        androidx.core.content.ContextCompat.getColorStateList(context, value.resourceId)
+            ?.defaultColor ?: value.data
+    } else {
+        value.data
     }
 }

@@ -31,6 +31,7 @@
     <!-- Main screen -->
     <string name="app_subtitle">script aggregation mobile</string>
     <string name="drawer_scripts_label">Scripts</string>
+    <string name="drawer_running_badge">Running</string>
     <string name="cd_add_script">Add script</string>
     <string name="cd_settings">Settings</string>
     <string name="welcome_title">Welcome</string>
@@ -40,6 +41,7 @@
     <string name="import_from_file">Import from File</string>
     <string name="builtin_examples">Built-in Examples</string>
     <string name="builtin_examples_title">Built-in Examples</string>
+    <string name="builtin_example_installed">Installed</string>
     <string name="agent_config_hint">Tip: configure AGENT_API_URL and OPENAI_API_KEY in Settings to use this script</string>
     <string name="import_unsupported">Only .js scripts or .json script packages can be imported: %1$s</string>
     <string name="import_read_failed">Could not read the selected file</string>

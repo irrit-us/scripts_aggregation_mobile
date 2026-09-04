@@ -36,6 +36,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UI unification across the built-in examples in the todo_list style:
   compact horizontal rows with inline glyph buttons (labels used as
   tap targets) replacing most full-width buttons
+- "Built-in Examples" picker reworked: each bundled script now shows its
+  real title and a short summary parsed from the script's header comments
+  (instead of a bare filename), plus an "Installed" badge for examples
+  already installed; installing a built-in example now stores that
+  title/summary as the script's name and description instead of the
+  filename and "Imported script" (`ScriptManager.installScriptFromFile`
+  gained optional `displayName`/`displayDescription` overrides)
+- Script drawer restyled for legibility and touch feedback: density-scaled
+  padding throughout (raw-pixel padding made rows cramped on high-density
+  screens), ripple feedback on script rows and on the "+"/settings actions
+  (now 48dp touch targets), theme-driven colors replacing hardcoded gray/
+  blue (the running script shows a rounded primary-tinted row with a
+  "Running" badge instead of a flat translucent rectangle), and a hairline
+  divider under the drawer header
 
 
 ## [0.1.0] - 2026-08-28

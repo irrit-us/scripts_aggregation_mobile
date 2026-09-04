@@ -114,8 +114,19 @@ class ScriptManager(
 
     /**
      * Install script from a file, either a raw JavaScript source or a JSON package.
+     *
+     * [displayName]/[displayDescription] override the filename-derived defaults
+     * for raw JavaScript installs; the built-in examples import uses them to
+     * store the title and summary parsed from each script's header comments.
+     * A prettified form of the filename generates the same script id, so
+     * reinstalling with an override still overwrites the same entry.
      */
-    suspend fun installScriptFromFile(file: File, verifySignature: Boolean = true): InstallResult {
+    suspend fun installScriptFromFile(
+        file: File,
+        verifySignature: Boolean = true,
+        displayName: String? = null,
+        displayDescription: String? = null
+    ): InstallResult {
         return try {
             val content = file.readText()
 
@@ -126,10 +137,10 @@ class ScriptManager(
                 // the permissions its API usage implies so the runtime grant
                 // flow has something to ask for; users can revoke in Settings.
                 installScript(
-                    name = file.nameWithoutExtension,
+                    name = displayName?.takeIf { it.isNotBlank() } ?: file.nameWithoutExtension,
                     version = "1.0.0",
                     author = "Unknown",
-                    description = "Imported script",
+                    description = displayDescription?.takeIf { it.isNotBlank() } ?: "Imported script",
                     permissions = detectPermissions(content),
                     sourceCode = content,
                     verifySignature = false
@@ -223,6 +234,14 @@ class ScriptManager(
      */
     fun getAllScripts(): List<Script> {
         return installedScripts.values.toList()
+    }
+
+    /**
+     * True when a script with the id that [name]/[author] would generate is
+     * already installed (see [generateScriptId]).
+     */
+    fun isInstalled(name: String, author: String = "Unknown"): Boolean {
+        return installedScripts.containsKey(generateScriptId(name, author))
     }
 
     /**
